@@ -3,7 +3,7 @@ services:
     build:
       context: ./backend
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8101:8000"
     volumes:
       - oqtekal_data:/data           # SQLite DB (survives container restarts/updates)
       - oqtekal_storage:/app/storage # uploaded originals
@@ -19,7 +19,7 @@ services:
         # Baked in at build time - rebuild the image if this changes (see README).
         NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:8000}
     ports:
-      - "3000:3000"
+      - "127.0.0.1:8102:3000"
     depends_on:
       - backend
     restart: unless-stopped
