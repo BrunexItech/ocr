@@ -72,7 +72,7 @@ function TypesAdmin() {
                 <td className="px-4 py-2 text-slate-500">{t.domain}</td>
                 <td className="px-4 py-2 text-slate-500">
                   {Object.entries(t.fields_schema)
-                    .map(([k, v]) => `${k}${v.required ? "*" : ""}${v.sensitive ? " 🔒" : ""}`)
+                    .map(([k, v]) => `${k}${v.required ? "*" : ""}${v.sensitive ? " (sensitive)" : ""}`)
                     .join(", ")}
                 </td>
               </tr>

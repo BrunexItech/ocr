@@ -103,7 +103,7 @@ function DocumentsList() {
               </div>
               <div className="p-2.5">
                 <p className="text-xs font-mono text-slate-700 truncate">{d.tracking_no}</p>
-                <p className="text-xs text-slate-400 truncate mt-0.5">{d.file_name}</p>
+                <p className="text-xs text-slate-400 truncate mt-0.5">{d.detected_kind}</p>
               </div>
             </Link>
           ))}

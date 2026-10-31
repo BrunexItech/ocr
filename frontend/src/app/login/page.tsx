@@ -29,7 +29,9 @@ export default function LoginPage() {
     <div className="min-h-[calc(100vh-56px)] grid lg:grid-cols-2">
       <div className="hidden lg:flex flex-col justify-between brand-grad text-white p-12">
         <div className="flex items-center gap-2 font-semibold text-lg">
-          <span className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">📷</span>
+          <span className="w-8 h-8 rounded-lg bg-white/15 flex items-center justify-center">
+            <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3" /></svg>
+          </span>
           Oqtekal OCR
         </div>
         <div>
@@ -45,7 +47,9 @@ export default function LoginPage() {
       <div className="flex items-center justify-center p-6">
         <div className="w-full max-w-sm">
           <div className="lg:hidden mb-6 flex items-center gap-2 font-semibold text-lg text-emerald-700">
-            <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">📷</span>
+            <span className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+              <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3" /></svg>
+            </span>
             Oqtekal OCR
           </div>
           <h2 className="text-xl font-semibold mb-1">Welcome back</h2>

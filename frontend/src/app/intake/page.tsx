@@ -13,7 +13,7 @@ function IntakeForm() {
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ tracking_no: string; status: string; confidence: number | null } | null>(null);
+  const [result, setResult] = useState<{ tracking_no: string; status: string; confidence: number | null; detectedKind: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
@@ -38,7 +38,7 @@ function IntakeForm() {
     setResult(null);
     try {
       const doc = await api.intake(file, typeId || undefined);
-      setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence });
+      setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence, detectedKind: doc.detected_kind });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
     } finally {
@@ -147,7 +147,7 @@ function IntakeForm() {
         {result && (
           <div className="rounded-xl bg-emerald-50 border border-emerald-200 p-4 text-sm text-emerald-800">
             <p className="font-medium mb-1">
-              Scanned as <span className="font-mono">{result.tracking_no}</span>
+              Detected: {result.detectedKind} · <span className="font-mono">{result.tracking_no}</span>
             </p>
             <p className="text-emerald-700">
               Status: {result.status.replace("_", " ")}

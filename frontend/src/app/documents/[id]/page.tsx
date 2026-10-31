@@ -65,7 +65,7 @@ function DocumentDetail() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold font-mono break-all">{doc.tracking_no}</h1>
           <p className="text-sm text-slate-500 mt-1">
-            {doc.file_name} · {doc.status.replace("_", " ")} · confidence{" "}
+            {doc.detected_kind} · {doc.file_name} · {doc.status.replace("_", " ")} · confidence{" "}
             {doc.ocr_confidence != null ? `${(doc.ocr_confidence * 100).toFixed(0)}%` : "—"}
             {doc.locked && <span className="ml-2 text-slate-400">· locked</span>}
           </p>

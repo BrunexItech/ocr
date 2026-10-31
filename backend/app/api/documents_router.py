@@ -45,15 +45,28 @@ class DocOut(BaseModel):
     field_confidence: dict
     reasons: list
     locked: bool
+    detected_kind: str = "Document"
 
     class Config:
         from_attributes = True
+
+
+def _detect_kind(fields: dict) -> str:
+    """Human-readable label for what the extractor recognised, derived from which
+    field shape came back (MRZ identity fields vs invoice/receipt fields) - no extra
+    DB column needed since this is computed from the extracted data itself."""
+    if "mrz_checksum_valid" in fields:
+        return "ID card / Passport"
+    if any(k in fields for k in ("invoice_number", "total_amount")):
+        return "Invoice / Receipt"
+    return "Document"
 
 
 def _doc_to_out(d: Document, user: User, db: Session, reveal: bool = False) -> dict:
     dt = db.get(DocumentType, d.type_id) if d.type_id else None
     out = DocOut.model_validate(d).model_dump()
     out["fields"] = mask_fields(d.fields, dt, Role(user.role), reveal)
+    out["detected_kind"] = _detect_kind(d.fields)
     return out
 
 

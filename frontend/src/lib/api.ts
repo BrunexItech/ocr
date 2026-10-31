@@ -184,6 +184,7 @@ export type DocumentOut = {
   field_confidence: Record<string, number>;
   reasons: string[];
   locked: boolean;
+  detected_kind: string;
 };
 
 export type IntegrationOut = { id: string; name: string; kind: string; config: Record<string, unknown>; active: boolean };
