@@ -3,7 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
+import LiveScanner from "@/components/LiveScanner";
 import { api, ApiError, DocumentType } from "@/lib/api";
+
+type Mode = "extract" | "document_only";
 
 function IntakeForm() {
   const router = useRouter();
@@ -11,12 +14,13 @@ function IntakeForm() {
   const [typeId, setTypeId] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [mode, setMode] = useState<Mode | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState<{ tracking_no: string; status: string; confidence: number | null; detectedKind: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
-  const cameraInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     api.listDocumentTypes().then(setTypes).catch(() => setTypes([]));
@@ -26,18 +30,20 @@ function IntakeForm() {
     setFile(f);
     setResult(null);
     setError("");
+    setMode(null);
+    setTypeId("");
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f && f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) return;
+    if (!file || !mode) return;
     setBusy(true);
     setError("");
     setResult(null);
     try {
-      const doc = await api.intake(file, typeId || undefined);
+      const doc = await api.intake(file, mode === "extract" ? typeId || undefined : undefined);
       setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence, detectedKind: doc.detected_kind });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
@@ -50,9 +56,18 @@ function IntakeForm() {
     <div className="max-w-xl mx-auto">
       <h1 className="text-xl font-semibold mb-1">Scan a document</h1>
       <p className="text-sm text-slate-500 mb-6">
-        Snap a photo or drop a file — OCR runs immediately and routes the result to review or approval
-        automatically based on confidence.
+        Point your camera at a document — it captures automatically once the edges are detected and steady.
       </p>
+
+      {scannerOpen && (
+        <LiveScanner
+          onCapture={(f) => {
+            setScannerOpen(false);
+            pickFile(f);
+          }}
+          onClose={() => setScannerOpen(false)}
+        />
+      )}
 
       <form onSubmit={onSubmit} className="space-y-4">
         {!preview ? (
@@ -79,11 +94,11 @@ function IntakeForm() {
             <div className="flex items-center justify-center gap-3">
               <button
                 type="button"
-                onClick={() => cameraInput.current?.click()}
+                onClick={() => setScannerOpen(true)}
                 className="inline-flex items-center gap-2 rounded-full bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3" /></svg>
-                Use camera
+                Live scan
               </button>
               <button
                 type="button"
@@ -93,14 +108,6 @@ function IntakeForm() {
                 Choose file
               </button>
             </div>
-            <input
-              ref={cameraInput}
-              type="file"
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={(e) => pickFile(e.target.files?.[0] || null)}
-            />
             <input
               ref={fileInput}
               type="file"
@@ -131,17 +138,43 @@ function IntakeForm() {
           </div>
         )}
 
-        <div className="bg-white border border-slate-200 rounded-2xl p-4 card-float">
-          <label className="block text-sm font-medium text-slate-700 mb-1.5">Document type</label>
-          <select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={typeId} onChange={(e) => setTypeId(e.target.value)}>
-            <option value="">Auto (no type-specific validation)</option>
-            {types.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name} ({t.domain})
-              </option>
-            ))}
-          </select>
-        </div>
+        {file && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 card-float">
+            <p className="text-sm font-medium text-slate-700 mb-2.5">What do you want to do with this scan?</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode("extract")}
+                className={`text-left rounded-xl border p-3 transition ${mode === "extract" ? "border-emerald-500 bg-emerald-50" : "border-slate-200 hover:border-slate-300"}`}
+              >
+                <p className="text-sm font-semibold text-slate-800">Extract &amp; save to database</p>
+                <p className="text-xs text-slate-500 mt-0.5">Pull out structured fields and route through review/approval.</p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("document_only")}
+                className={`text-left rounded-xl border p-3 transition ${mode === "document_only" ? "border-emerald-500 bg-emerald-50" : "border-slate-200 hover:border-slate-300"}`}
+              >
+                <p className="text-sm font-semibold text-slate-800">Just keep the scanned document</p>
+                <p className="text-xs text-slate-500 mt-0.5">Store the cleaned-up scan and its text, without picking a schema.</p>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {mode === "extract" && (
+          <div className="bg-white border border-slate-200 rounded-2xl p-4 card-float">
+            <label className="block text-sm font-medium text-slate-700 mb-1.5">Document type</label>
+            <select className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" value={typeId} onChange={(e) => setTypeId(e.target.value)}>
+              <option value="">Auto-detect (MRZ / invoice heuristics)</option>
+              {types.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name} ({t.domain})
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {error && <p className="text-sm text-red-600">{error}</p>}
         {result && (
@@ -164,9 +197,9 @@ function IntakeForm() {
           </div>
         )}
 
-        {!result && (
+        {!result && file && (
           <button
-            disabled={busy || !file}
+            disabled={busy || !mode}
             className="w-full rounded-full bg-emerald-600 text-white py-3 text-sm font-semibold hover:bg-emerald-700 disabled:opacity-40 transition shadow-sm"
           >
             {busy ? "Reading document…" : "Scan & extract"}
