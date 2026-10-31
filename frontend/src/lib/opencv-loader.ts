@@ -67,6 +67,7 @@ type OpenCVMatVector = {
 };
 
 let loadPromise: Promise<OpenCVNamespace> | null = null;
+const LOAD_TIMEOUT_MS = 20000;
 
 export function loadOpenCV(): Promise<OpenCVNamespace> {
   if (loadPromise) return loadPromise;
@@ -75,16 +76,29 @@ export function loadOpenCV(): Promise<OpenCVNamespace> {
       resolve(window.cv);
       return;
     }
+
+    const timer = setTimeout(() => {
+      loadPromise = null; // allow a retry on the next call rather than hanging forever
+      reject(new Error("The scanner engine took too long to load - check your connection and try again"));
+    }, LOAD_TIMEOUT_MS);
+
+    const settle = (fn: () => void) => {
+      clearTimeout(timer);
+      fn();
+    };
+
+    // OpenCV.js's WASM init runs as soon as the script executes, and only calls
+    // onRuntimeInitialized if it's ALREADY set on `cv` (or `Module`) at that moment -
+    // registering it after script.onload fires is too late and the signal is missed.
+    // So we must pre-create the object and attach the callback BEFORE injecting the script.
+    window.cv = ({
+      onRuntimeInitialized: () => settle(() => resolve(window.cv)),
+    } as unknown) as OpenCVNamespace;
+
     const script = document.createElement("script");
     script.src = "https://docs.opencv.org/4.9.0/opencv.js";
     script.async = true;
-    script.onerror = () => reject(new Error("Could not load the scanner engine - check your connection"));
-    script.onload = () => {
-      const cv = window.cv as unknown as OpenCVNamespace & { then?: (cb: () => void) => void };
-      const finish = () => resolve(window.cv);
-      if (cv.Mat) finish();
-      else cv.onRuntimeInitialized = finish;
-    };
+    script.onerror = () => settle(() => reject(new Error("Could not load the scanner engine - check your connection")));
     document.head.appendChild(script);
   });
   return loadPromise;

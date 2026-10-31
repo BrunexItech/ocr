@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from "react";
 import { loadOpenCV, OpenCVNamespace } from "@/lib/opencv-loader";
+import Spinner from "@/components/Spinner";
 
 type Point = { x: number; y: number };
 
@@ -20,6 +21,8 @@ function cornerDistance(a: Point[], b: Point[]): number {
   return a.reduce((sum, p, i) => sum + Math.hypot(p.x - b[i].x, p.y - b[i].y), 0) / a.length;
 }
 
+type Status = "starting_camera" | "live" | "detecting" | "camera_error" | "engine_error";
+
 export default function LiveScanner({
   onCapture,
   onClose,
@@ -34,27 +37,49 @@ export default function LiveScanner({
   const rafRef = useRef<number | null>(null);
   const historyRef = useRef<Point[][]>([]);
   const capturedRef = useRef(false);
+  const cvRef = useRef<OpenCVNamespace | null>(null);
+  const lastQuadRef = useRef<Point[] | null>(null);
 
-  const [status, setStatus] = useState<"loading" | "ready" | "detecting" | "error">("loading");
+  const [status, setStatus] = useState<Status>("starting_camera");
   const [errorMsg, setErrorMsg] = useState("");
   const [hasQuad, setHasQuad] = useState(false);
+  const [engineReady, setEngineReady] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   }, []);
 
-  const capture = useCallback(
-    (cv: OpenCVNamespace, quad: Point[]) => {
+  const finishCapture = useCallback(
+    (blob: Blob | null) => {
+      stop();
+      if (blob) onCapture(new File([blob], `scan_${Date.now()}.jpg`, { type: "image/jpeg" }));
+    },
+    [onCapture, stop]
+  );
+
+  // Crops+straightens via the detected quad when available; otherwise just takes the
+  // raw frame as-is. Used by both auto-capture and the manual shutter button.
+  const captureNow = useCallback(
+    (quad?: Point[]) => {
       if (capturedRef.current) return;
       capturedRef.current = true;
+      setStatus("detecting");
       const video = videoRef.current!;
-      const work = workRef.current!;
-      work.width = video.videoWidth;
-      work.height = video.videoHeight;
-      const ctx = work.getContext("2d")!;
-      ctx.drawImage(video, 0, 0, work.width, work.height);
+      const full = document.createElement("canvas");
+      full.width = video.videoWidth;
+      full.height = video.videoHeight;
+      const ctx = full.getContext("2d")!;
+      ctx.drawImage(video, 0, 0, full.width, full.height);
+
+      const cv = cvRef.current;
+      if (!quad || !cv) {
+        full.toBlob(finishCapture, "image/jpeg", 0.92);
+        return;
+      }
 
       const ordered = orderCorners(quad);
       const widthA = Math.hypot(ordered[2].x - ordered[3].x, ordered[2].y - ordered[3].y);
@@ -65,7 +90,7 @@ export default function LiveScanner({
       const outH = Math.max(heightA, heightB);
 
       try {
-        const src = cv.imread(work);
+        const src = cv.imread(full);
         const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, ordered.flatMap((p) => [p.x, p.y]));
         const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, outW, 0, outW, outH, 0, outH]);
         const m = cv.getPerspectiveTransform(srcPts, dstPts);
@@ -80,65 +105,26 @@ export default function LiveScanner({
         dstPts.delete();
         m.delete();
         dst.delete();
-        outCanvas.toBlob(
-          (blob) => {
-            stop();
-            if (blob) onCapture(new File([blob], `scan_${Date.now()}.jpg`, { type: "image/jpeg" }));
-          },
-          "image/jpeg",
-          0.92
-        );
+        outCanvas.toBlob(finishCapture, "image/jpeg", 0.92);
       } catch {
-        // Fall back to an uncropped capture rather than losing the shot entirely.
-        work.toBlob(
-          (blob) => {
-            stop();
-            if (blob) onCapture(new File([blob], `scan_${Date.now()}.jpg`, { type: "image/jpeg" }));
-          },
-          "image/jpeg",
-          0.92
-        );
+        full.toBlob(finishCapture, "image/jpeg", 0.92);
       }
     },
-    [onCapture, stop]
+    [finishCapture]
   );
 
   useEffect(() => {
     let cancelled = false;
-    let cv: OpenCVNamespace | null = null;
+    capturedRef.current = false;
+    historyRef.current = [];
 
-    async function start() {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 1280 } },
-        });
-        if (cancelled) {
-          stream.getTracks().forEach((t) => t.stop());
-          return;
-        }
-        streamRef.current = stream;
-        const video = videoRef.current!;
-        video.srcObject = stream;
-        await video.play();
-
-        cv = await loadOpenCV();
-        if (cancelled) return;
-        setStatus("ready");
-        loop(cv);
-      } catch (err) {
-        if (!cancelled) {
-          setStatus("error");
-          setErrorMsg(err instanceof Error ? err.message : "Could not access the camera");
-        }
-      }
-    }
-
-    function loop(cv: OpenCVNamespace) {
+    function loop() {
+      const cv = cvRef.current;
       const video = videoRef.current;
       const overlay = overlayRef.current;
       const work = workRef.current;
-      if (!video || !overlay || !work || video.videoWidth === 0) {
-        rafRef.current = requestAnimationFrame(() => loop(cv));
+      if (!cv || !video || !overlay || !work || video.videoWidth === 0) {
+        rafRef.current = requestAnimationFrame(loop);
         return;
       }
       const scale = 480 / video.videoWidth;
@@ -204,6 +190,7 @@ export default function LiveScanner({
 
       if (quad) {
         const ordered = orderCorners(quad);
+        lastQuadRef.current = ordered;
         octx.strokeStyle = "#10d99a";
         octx.lineWidth = 4;
         octx.beginPath();
@@ -224,16 +211,60 @@ export default function LiveScanner({
         if (hist.length === STABILITY_FRAMES) {
           const drift = Math.max(...hist.slice(1).map((q, i) => cornerDistance(q, hist[i])));
           if (drift < STABILITY_TOLERANCE) {
-            setStatus("detecting");
-            capture(cv, ordered);
+            captureNow(ordered);
             return;
           }
         }
       } else {
         historyRef.current = [];
+        lastQuadRef.current = null;
       }
 
-      rafRef.current = requestAnimationFrame(() => loop(cv));
+      rafRef.current = requestAnimationFrame(loop);
+    }
+
+    async function start() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 1280 } },
+        });
+        if (cancelled) {
+          stream.getTracks().forEach((t) => t.stop());
+          return;
+        }
+        streamRef.current = stream;
+        const video = videoRef.current!;
+        video.srcObject = stream;
+        await video.play();
+        if (cancelled) return;
+        // The camera itself is usable right away - the shutter button works from here,
+        // independent of whether the detection engine below loads successfully.
+        setStatus("live");
+      } catch (err) {
+        if (!cancelled) {
+          setStatus("camera_error");
+          setErrorMsg(
+            err instanceof Error && err.name === "NotAllowedError"
+              ? "Camera access was blocked. Allow camera permission for this site and try again."
+              : "Could not access the camera on this device."
+          );
+        }
+        return;
+      }
+
+      // Detection engine loads in the background; auto-capture only activates once ready.
+      try {
+        const cv = await loadOpenCV();
+        if (cancelled) return;
+        cvRef.current = cv;
+        setEngineReady(true);
+        loop();
+      } catch (err) {
+        if (!cancelled) {
+          setErrorMsg(err instanceof Error ? err.message : "Auto-detection engine failed to load");
+          // Camera is still live and the shutter button still works - this is a soft failure.
+        }
+      }
     }
 
     start();
@@ -242,16 +273,18 @@ export default function LiveScanner({
       stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [retryKey]);
+
+  const cameraFailed = status === "camera_error";
 
   return (
     <div className="fixed inset-0 z-50 bg-black flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 text-white">
         <span className="text-sm font-medium">
-          {status === "loading" && "Starting camera…"}
-          {status === "ready" && (hasQuad ? "Hold steady…" : "Point at a document")}
+          {status === "starting_camera" && "Starting camera…"}
+          {status === "live" && (hasQuad ? "Hold steady…" : engineReady ? "Point at a document" : "Tap the button to capture")}
           {status === "detecting" && "Capturing…"}
-          {status === "error" && "Camera error"}
+          {cameraFailed && "Camera unavailable"}
         </span>
         <button onClick={() => { stop(); onClose(); }} className="p-2 -mr-2" aria-label="Close scanner">
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -262,15 +295,57 @@ export default function LiveScanner({
         <video ref={videoRef} className="absolute inset-0 w-full h-full object-cover" muted playsInline />
         <canvas ref={overlayRef} className="absolute inset-0 w-full h-full object-cover pointer-events-none" />
         <canvas ref={workRef} className="hidden" />
-        {status === "error" && (
-          <div className="absolute inset-0 flex items-center justify-center p-6 text-center text-white bg-black/80">
+
+        {status === "starting_camera" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70">
+            <Spinner className="w-9 h-9" light />
+            <p className="text-sm text-white/80">Starting camera…</p>
+          </div>
+        )}
+        {status === "detecting" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/40">
+            <Spinner className="w-9 h-9" light />
+          </div>
+        )}
+        {cameraFailed && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 p-6 text-center text-white bg-black/90">
             <p className="text-sm">{errorMsg}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setStatus("starting_camera");
+                  setErrorMsg("");
+                  setEngineReady(false);
+                  setRetryKey((k) => k + 1);
+                }}
+                className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold hover:bg-emerald-700"
+              >
+                Try again
+              </button>
+              <button onClick={onClose} className="rounded-full border border-white/30 px-5 py-2 text-sm font-semibold">
+                Use file upload instead
+              </button>
+            </div>
+          </div>
+        )}
+        {status === "live" && !engineReady && errorMsg && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-500/90 text-white text-xs px-3 py-1.5 rounded-full">
+            Auto-detect unavailable - use the capture button below
           </div>
         )}
       </div>
 
-      <div className="p-4 text-center text-white/70 text-xs">
-        Captures automatically once the document edges are detected and steady.
+      <div className="p-5 flex flex-col items-center gap-3">
+        {status === "live" && (
+          <button
+            onClick={() => captureNow(lastQuadRef.current || undefined)}
+            className="w-16 h-16 rounded-full bg-white ring-4 ring-white/30 active:scale-95 transition"
+            aria-label="Capture"
+          />
+        )}
+        <p className="text-white/60 text-xs text-center">
+          {engineReady ? "Captures automatically, or tap the button anytime." : "Tap the button when the document is in frame."}
+        </p>
       </div>
     </div>
   );

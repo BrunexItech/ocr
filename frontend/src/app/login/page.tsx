@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api";
+import Spinner from "@/components/Spinner";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -79,8 +80,9 @@ export default function LoginPage() {
             {error && <p className="text-sm text-red-600">{error}</p>}
             <button
               disabled={busy}
-              className="w-full rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition"
+              className="w-full flex items-center justify-center gap-2 rounded-lg bg-emerald-600 text-white py-2.5 text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition"
             >
+              {busy && <Spinner className="w-4 h-4" light />}
               {busy ? "Signing in…" : "Sign in"}
             </button>
           </form>

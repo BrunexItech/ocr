@@ -23,7 +23,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const token = getToken();
     if (!token) {
-      setLoading(false);
+      // Defer to a microtask so this doesn't call setState synchronously within the
+      // effect body itself - keeps the same shape as the async branch below.
+      Promise.resolve().then(() => setLoading(false));
       return;
     }
     api

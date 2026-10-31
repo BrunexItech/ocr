@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import Spinner from "@/components/Spinner";
 
 export default function RequireAuth({ roles, children }: { roles?: string[]; children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -12,7 +13,13 @@ export default function RequireAuth({ roles, children }: { roles?: string[]; chi
     if (!loading && !user) router.replace("/login");
   }, [loading, user, router]);
 
-  if (loading) return <div className="text-slate-500 text-sm">Loading…</div>;
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Spinner className="w-7 h-7" />
+      </div>
+    );
+  }
   if (!user) return null;
   if (roles && !roles.includes(user.role)) {
     return (
