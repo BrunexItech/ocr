@@ -1,8 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f6f5;
+  --foreground: #10231c;
+  --brand: #0f9d78;
+  --brand-dark: #0b7a5c;
+  --brand-50: #e7f7f0;
+  --surface: #ffffff;
+  --line: #e4e9e6;
+  --shadow-sm: 0 1px 2px rgba(16, 35, 28, 0.06), 0 1px 3px rgba(16, 35, 28, 0.08);
+  --shadow-md: 0 4px 10px rgba(16, 35, 28, 0.08), 0 2px 4px rgba(16, 35, 28, 0.06);
+  --shadow-lg: 0 16px 40px rgba(16, 35, 28, 0.16), 0 4px 10px rgba(16, 35, 28, 0.08);
 }
 
 @theme inline {
@@ -12,15 +20,33 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #cdd6d1;
+  border-radius: 8px;
+}
+
+.brand-grad {
+  background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+}
+
+.card-float {
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+.card-float:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }

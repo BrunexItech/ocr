@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
+import DocThumb from "@/components/DocThumb";
 import { useAuth } from "@/lib/auth-context";
 import { api, ApiError, DocumentOut, IntegrationOut } from "@/lib/api";
 
@@ -84,6 +85,10 @@ function DocumentDetail() {
       )}
       {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700 mb-4">{error}</div>}
       {notice && <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800 mb-4">{notice}</div>}
+
+      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 mb-4 max-h-[420px]">
+        <DocThumb docId={doc.id} fit="contain" className="w-full max-h-[420px]" />
+      </div>
 
       <div className="bg-white border border-slate-200 rounded-lg p-5 mb-4">
         <div className="flex items-center justify-between mb-3">
