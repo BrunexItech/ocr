@@ -20,7 +20,7 @@ a requirement for using it.
 
 See `backend/README.md` for API/setup details.
 
-## Quick start
+## Quick start (local, no Docker)
 
 ```bash
 # backend
@@ -35,6 +35,50 @@ cd frontend && npm install && npm run dev
 
 Open http://localhost:3000, register the first account (becomes admin automatically), and
 create an `intake` user to start scanning.
+
+## Deploying with Docker (production)
+
+Each service has its own `Dockerfile`, and `docker-compose.yml` at the repo root wires
+them together with persistent volumes for the database, uploaded files, and the OCR
+model cache (so the one-time model download survives restarts/updates).
+
+```bash
+cp .env.example .env
+# edit .env: set JWT_SECRET to a long random string, and NEXT_PUBLIC_API_URL to your
+# server's real public URL (e.g. https://ocr.yourdomain.com/api) if not localhost
+
+docker compose up -d --build
+```
+
+- Backend API: `http://<server>:8000`
+- Frontend: `http://<server>:3000`
+- First request to intake will download EasyOCR's model weights once (~100MB total);
+  subsequent runs reuse the `easyocr_models` volume.
+
+**Important**: `NEXT_PUBLIC_API_URL` is baked into the frontend at build time (it's a
+browser-exposed env var). If you change it, rebuild with
+`docker compose build --no-cache frontend` rather than just restarting the container.
+
+### Pulling this onto a fresh server
+
+```bash
+git clone https://github.com/BrunexItech/ocr.git
+cd ocr
+cp .env.example .env   # edit values
+docker compose up -d --build
+```
+
+Put this behind a reverse proxy (Nginx/Caddy/Traefik) for TLS and a real domain in front
+of ports 3000/8000 — the containers themselves serve plain HTTP.
+
+### Updating a running deployment
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+Volumes (and therefore the database and uploaded documents) persist across this.
 
 ## Architecture notes
 

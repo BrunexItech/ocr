@@ -12,6 +12,9 @@ frontend/.next/
 frontend/.env.local
 frontend/next-env.d.ts
 
+# Local secrets (use .env.example as the template)
+.env
+
 # OS / editor
 .DS_Store
 *.log
