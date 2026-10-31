@@ -30,11 +30,24 @@ class ApiError extends Error {
   }
 }
 
+function describeDetail(detail: unknown, fallback: string): string {
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail) && detail.length) {
+    // FastAPI/Pydantic validation errors: [{loc, msg, type}, ...]
+    return detail
+      .map((d) => (d && typeof d === "object" && "msg" in d ? String((d as { msg: unknown }).msg) : String(d)))
+      .join("; ");
+  }
+  return fallback;
+}
+
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const token = getToken();
   const headers = new Headers(options.headers);
   if (token) headers.set("Authorization", `Bearer ${token}`);
-  if (!(options.body instanceof FormData) && options.body) {
+  // Only default to JSON when the caller hasn't already set an explicit Content-Type
+  // (e.g. login sends application/x-www-form-urlencoded for its URLSearchParams body).
+  if (!(options.body instanceof FormData) && options.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
   const res = await fetch(`${API_URL}${path}`, { ...options, headers });
@@ -42,7 +55,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     let detail = res.statusText;
     try {
       const body = await res.json();
-      detail = body.detail || detail;
+      detail = describeDetail(body.detail, detail);
     } catch {
       /* ignore */
     }
