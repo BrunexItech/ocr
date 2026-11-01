@@ -133,6 +133,28 @@ def auto_crop_and_straighten(image: np.ndarray) -> np.ndarray:
     return cv2.warpPerspective(image, matrix, (max_width, max_height))
 
 
+def stack_vertical(images: list[np.ndarray]) -> np.ndarray:
+    """Stitch cropped pages (e.g. the front and back of an ID card) into one image, so
+    a two-sided scan still stores/previews/downloads as a single file like any other
+    document. Each page is scaled to a common width and separated by a thin divider."""
+    if len(images) == 1:
+        return images[0]
+    width = max(img.shape[1] for img in images)
+    resized = []
+    for img in images:
+        h, w = img.shape[:2]
+        if w != width:
+            img = cv2.resize(img, (width, int(h * width / w)))
+        resized.append(img)
+    divider = np.full((24, width, 3), 200, dtype=np.uint8)
+    parts: list[np.ndarray] = []
+    for i, img in enumerate(resized):
+        if i > 0:
+            parts.append(divider)
+        parts.append(img)
+    return cv2.vconcat(parts)
+
+
 def sharpen(image: np.ndarray) -> np.ndarray:
     kernel = np.array([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
     return cv2.filter2D(image, -1, kernel)

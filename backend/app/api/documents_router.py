@@ -19,7 +19,7 @@ from app.pipeline.engine import default_engine
 from app.pipeline.extract_fields import extract_id_fields, extract_invoice_fields, looks_like_id
 from app.pipeline.loader import load_pages
 from app.pipeline.mrz import find_and_parse_mrz, mrz_to_fields
-from app.pipeline.preprocess import apply_enhance_mode, auto_crop_and_straighten, find_document_contour, preprocess_for_ocr
+from app.pipeline.preprocess import apply_enhance_mode, auto_crop_and_straighten, find_document_contour, preprocess_for_ocr, stack_vertical
 
 router = APIRouter()
 
@@ -97,6 +97,7 @@ async def detect_frame(file: UploadFile = File(...), user: User = Depends(get_cu
 @router.post("/intake", response_model=DocOut)
 async def intake(
     file: UploadFile = File(...),
+    file_back: UploadFile | None = File(None),  # ID cards carry data on both sides
     type_id: str | None = None,
     title: str | None = None,
     kind: str | None = None,  # optional hint from the scan-mode card: document | id_card | passport
@@ -109,38 +110,61 @@ async def intake(
     if len(data) > settings.max_upload_mb * 1024 * 1024:
         raise HTTPException(400, f"File exceeds {settings.max_upload_mb}MB limit")
 
-    tracking_no = _tracking_no()
-    dest = STORAGE_DIR / f"{tracking_no}_{file.filename}"
-    dest.write_bytes(data)
+    back_data: bytes | None = None
+    if file_back is not None:
+        if file_back.content_type not in ALLOWED_TYPES:
+            raise HTTPException(400, f"Unsupported file type: {file_back.content_type}")
+        back_data = await file_back.read()
+        if len(back_data) > settings.max_upload_mb * 1024 * 1024:
+            raise HTTPException(400, f"File exceeds {settings.max_upload_mb}MB limit")
 
     doc_type = db.get(DocumentType, type_id) if type_id else None
     if type_id and not doc_type:
         raise HTTPException(400, f"Unknown document type: {type_id}")
+
+    try:
+        front_pages = load_pages(data, file.content_type)
+        back_pages = load_pages(back_data, file_back.content_type) if back_data else []
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+    tracking_no = _tracking_no()
+    if back_pages:
+        # A two-sided scan (front + back) is stitched into one image so it stores,
+        # previews, and downloads as a single file, same as any other document.
+        straightened_pages = [auto_crop_and_straighten(p) for p in front_pages + back_pages]
+        stored_image = stack_vertical(straightened_pages)
+        ok, buf = cv2.imencode(".jpg", stored_image, [cv2.IMWRITE_JPEG_QUALITY, 92])
+        if not ok:
+            raise HTTPException(500, "Failed to combine front/back scan")
+        stem = Path(file.filename).stem or "scan"
+        stored_name = f"{stem}.jpg"
+        dest = STORAGE_DIR / f"{tracking_no}_{stored_name}"
+        dest.write_bytes(buf.tobytes())
+    else:
+        stored_name = file.filename
+        dest = STORAGE_DIR / f"{tracking_no}_{stored_name}"
+        dest.write_bytes(data)
+
     doc = Document(tracking_no=tracking_no, title=(title or "").strip() or None, type_id=type_id,
-                    file_name=file.filename, file_path=str(dest),
+                    file_name=stored_name, file_path=str(dest), pre_cropped=bool(back_pages),
                     sensitivity=doc_type.default_sensitivity if doc_type else "internal",
                     created_by=user.id, status="processing")
     db.add(doc)
     db.flush()
     record(db, user=user.name, role=user.role, action="intake.register", document_id=doc.id,
-           detail=f"Registered {file.filename}")
-
-    try:
-        pages = load_pages(data, file.content_type)
-    except ValueError as exc:
-        doc.status = "failed"
-        doc.reasons = [str(exc)]
-        db.commit()
-        raise HTTPException(400, str(exc)) from exc
+           detail=f"Registered {file.filename}" + (" (front + back)" if back_pages else ""))
 
     texts, confidences = [], []
-    for page_image in pages:
+    for page_image in front_pages + back_pages:
         processed = preprocess_for_ocr(page_image)
         result = _engine.run(processed)
         texts.append(result.full_text)
         if result.blocks:
             confidences.append(sum(b.confidence for b in result.blocks) / len(result.blocks))
 
+    front_text = "\n\n".join(texts[: len(front_pages)])
+    back_text = "\n\n".join(texts[len(front_pages):])
     full_text = "\n\n".join(texts)
     overall_conf = sum(confidences) / len(confidences) if confidences else 0.0
 
@@ -155,8 +179,13 @@ async def intake(
     elif treat_as_identity:
         # Most ID cards (unlike passports) don't carry a machine-readable zone at all -
         # fall back to pulling labelled fields straight out of the OCR text instead of
-        # forcing the document through the invoice extractor.
-        extracted = extract_id_fields(full_text)
+        # forcing the document through the invoice extractor. When there's a back side,
+        # merge both: either side can carry a field the other is missing.
+        extracted = extract_id_fields(front_text)
+        if back_text:
+            for k, v in extract_id_fields(back_text).items():
+                if not extracted.get(k) and v:
+                    extracted[k] = v
     else:
         extracted = extract_invoice_fields(full_text)
 
@@ -346,7 +375,7 @@ def preview_image(doc_id: str, mode: str = "color", page: int = 1, db: Session =
     pages = load_pages(data, content_type)
     if page < 1 or page > len(pages):
         raise HTTPException(400, f"Page {page} out of range (document has {len(pages)} page(s))")
-    straightened = auto_crop_and_straighten(pages[page - 1])
+    straightened = pages[page - 1] if doc.pre_cropped else auto_crop_and_straighten(pages[page - 1])
     enhanced = apply_enhance_mode(straightened, mode)
     ok, buf = cv2.imencode(".jpg", enhanced, [cv2.IMWRITE_JPEG_QUALITY, 90])
     if not ok:

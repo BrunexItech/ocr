@@ -96,9 +96,10 @@ export const api = {
     const qs = new URLSearchParams(body as Record<string, string>).toString();
     return request<UserOut>(`/api/admin/users/${id}?${qs}`, { method: "PATCH" });
   },
-  async intake(file: File, typeId?: string, title?: string, kind?: string) {
+  async intake(file: File, typeId?: string, title?: string, kind?: string, fileBack?: File) {
     const form = new FormData();
     form.append("file", file);
+    if (fileBack) form.append("file_back", fileBack);
     const params = new URLSearchParams();
     if (typeId) params.set("type_id", typeId);
     if (title) params.set("title", title);

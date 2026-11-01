@@ -6,7 +6,7 @@ import RequireAuth from "@/components/RequireAuth";
 import LiveScanner, { ScanMode } from "@/components/LiveScanner";
 import Spinner from "@/components/Spinner";
 import { api, ApiError, DocumentType } from "@/lib/api";
-import { CreditCard, FileText, ScanLine, Upload, X } from "lucide-react";
+import { Camera, CreditCard, FileText, RotateCcw, ScanLine, Upload, X } from "lucide-react";
 
 type Mode = "extract" | "document_only";
 
@@ -28,8 +28,12 @@ function IntakeForm() {
   const [dragOver, setDragOver] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>("document");
+  const [capturingSide, setCapturingSide] = useState<"front" | "back">("front");
+  const [backFile, setBackFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
+
+  const needsBackSide = scanMode === "id_card";
 
   useEffect(() => {
     api.listDocumentTypes().then(setTypes).catch(() => setTypes([]));
@@ -37,6 +41,8 @@ function IntakeForm() {
 
   function pickFile(f: File | null) {
     setFile(f);
+    setBackFile(null);
+    setCapturingSide("front");
     setResult(null);
     setError("");
     setTypeId("");
@@ -51,7 +57,13 @@ function IntakeForm() {
     setError("");
     setResult(null);
     try {
-      const doc = await api.intake(file, mode === "extract" ? typeId || undefined : undefined, title.trim() || undefined, scanMode);
+      const doc = await api.intake(
+        file,
+        mode === "extract" ? typeId || undefined : undefined,
+        title.trim() || undefined,
+        scanMode,
+        backFile || undefined
+      );
       setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence, detectedKind: doc.detected_kind });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
@@ -73,7 +85,12 @@ function IntakeForm() {
           mode={scanMode}
           onCapture={(f) => {
             setScannerOpen(false);
-            pickFile(f);
+            if (scanMode === "id_card" && capturingSide === "back") {
+              setBackFile(f);
+            } else {
+              pickFile(f);
+              if (scanMode === "id_card") setCapturingSide("back");
+            }
           }}
           onClose={() => setScannerOpen(false)}
         />
@@ -154,6 +171,44 @@ function IntakeForm() {
           <div className="flex items-center gap-2 text-sm text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
             <FileText className="w-4 h-4 text-zinc-500" />
             {file.name}
+          </div>
+        )}
+
+        {file && needsBackSide && !result && (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 flex items-center justify-between gap-3">
+            {backFile ? (
+              <>
+                <span className="text-sm text-emerald-400 flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4" />
+                  Back side captured
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCapturingSide("back");
+                    setScannerOpen(true);
+                  }}
+                  className="text-xs font-medium text-zinc-400 hover:text-zinc-200 underline"
+                >
+                  Retake
+                </button>
+              </>
+            ) : (
+              <>
+                <span className="text-sm text-zinc-300">ID cards need the back scanned too</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCapturingSide("back");
+                    setScannerOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-1.5 text-xs font-semibold hover:bg-emerald-700 transition whitespace-nowrap"
+                >
+                  <Camera className="w-3.5 h-3.5" />
+                  Scan back
+                </button>
+              </>
+            )}
           </div>
         )}
 
