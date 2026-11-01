@@ -53,16 +53,36 @@ def _read_printed(crop: np.ndarray) -> tuple[str, float]:
     return text.strip(), confidence
 
 
+MAX_DIMENSION = 6000  # px, either side - generous for a phone/scanner photo, guards against absurd uploads
+
+
+@router.get("/zones-health")
+def zones_health(account: ServiceAccount = Depends(get_service_account)):
+    """Key-authenticated connectivity check for the zone service specifically -
+    confirms both that the server is reachable AND that this exact key is valid."""
+    return {"ok": True, "service": "ocr-zones", "account": account.name}
+
+
 @router.post("/ocr-zones")
-async def ocr_zones(
+def ocr_zones(
     file: UploadFile = File(...),
     zones: str = Form(...),  # JSON-encoded list of Zone, as multipart form fields can't carry nested JSON directly
     account: ServiceAccount = Depends(get_service_account),
 ):
-    data = await file.read()
+    # Plain `def`, not `async def`: this does real CPU-bound OCR work, so FastAPI runs
+    # it in its worker thread pool instead of blocking the single event loop thread -
+    # one slow zone request no longer stalls every other request (including health
+    # checks) on the same server process.
+    data = file.file.read()
+    if len(data) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(400, f"File exceeds {settings.max_upload_mb}MB limit")
     image = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
     if image is None:
-        raise HTTPException(400, "Could not decode image")
+        raise HTTPException(400, "Could not decode image - ocr-zones accepts single raster images "
+                                  "(JPG/PNG/WebP) only, not PDF")
+    img_h, img_w = image.shape[:2]
+    if img_h > MAX_DIMENSION or img_w > MAX_DIMENSION:
+        raise HTTPException(400, f"Image too large ({img_w}x{img_h}); max {MAX_DIMENSION}px on a side")
     try:
         parsed = ZoneRequest(zones=json.loads(zones))
     except (json.JSONDecodeError, TypeError, ValueError) as exc:
@@ -81,6 +101,15 @@ async def ocr_zones(
             results.append({"key": z.key, "text": None, "confidence": 0.0, "script": "unknown",
                              "bbox": [z.x, z.y, z.width, z.height], "normalized": None,
                              "error": "zone is outside the image bounds"})
+            continue
+
+        if z.expected_script == "handwritten" and not handwriting_ready:
+            # Handwriting is off (ENABLE_HANDWRITING=false) - report this explicitly as
+            # an unread handwritten field (blank text, low confidence, script correctly
+            # tagged "handwritten") rather than silently falling back to printed OCR or
+            # guessing, so it's unambiguous that a human needs to type this one in.
+            results.append({"key": z.key, "text": "", "confidence": 0.0, "script": "handwritten",
+                             "bbox": [z.x, z.y, z.width, z.height], "normalized": None})
             continue
 
         want_handwritten = z.expected_script == "handwritten" or (z.expected_script is None and handwriting_ready)
@@ -114,4 +143,9 @@ async def ocr_zones(
             "bbox": [z.x, z.y, z.width, z.height], "normalized": normalized,
         })
 
-    return {"zones": results, "handwriting_available": handwriting_ready}
+    return {
+        "zones": results,
+        "handwriting_available": handwriting_ready,
+        "image_width": img_w,
+        "image_height": img_h,
+    }

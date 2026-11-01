@@ -12,6 +12,7 @@ const LINKS = [
   { href: "/admin/types", label: "Document types", roles: ["admin"] },
   { href: "/admin/users", label: "Users", roles: ["admin"] },
   { href: "/admin/integrations", label: "Integrations", roles: ["admin"] },
+  { href: "/admin/zone-tool", label: "Zone template tool", roles: ["admin"] },
   { href: "/admin/audit", label: "Audit trail", roles: ["admin", "approver"] },
 ];
 

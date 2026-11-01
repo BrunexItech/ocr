@@ -25,10 +25,14 @@ app.add_middleware(
 
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
+# zones_router must be registered before documents_router: both share the
+# "/api/documents" prefix, and documents_router's GET /{doc_id} would otherwise
+# match a request for "/api/documents/zones-health" first (treating "zones-health"
+# as a doc_id) and reject it under JWT auth before zones_router ever sees it.
+app.include_router(zones_router, prefix="/api/documents", tags=["zones"])
 app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
 app.include_router(integrations_router, prefix="/api/integrations", tags=["integrations"])
 app.include_router(audit_router, prefix="/api/audit", tags=["audit"])
-app.include_router(zones_router, prefix="/api/documents", tags=["zones"])
 
 
 @app.get("/api/health")
