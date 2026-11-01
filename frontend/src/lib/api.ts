@@ -123,6 +123,9 @@ export const api = {
   async getDocument(id: string, reveal = false) {
     return request<DocumentOut>(`/api/documents/${id}${reveal ? "?reveal=true" : ""}`);
   },
+  async deleteDocument(id: string) {
+    return request<{ ok: boolean }>(`/api/documents/${id}`, { method: "DELETE" });
+  },
   async correctFields(id: string, fields: Record<string, unknown>, note?: string) {
     return request<DocumentOut>(`/api/documents/${id}/fields`, {
       method: "PATCH",
@@ -149,6 +152,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ integration_id: integrationId, fields }),
     });
+  },
+  async cropPreview(file: File): Promise<Blob> {
+    const token = getToken();
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch(`${API_URL}/api/documents/crop-preview`, {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: form,
+    });
+    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    return res.blob();
   },
   async listAudit() {
     return request<AuditEvent[]>("/api/audit/");

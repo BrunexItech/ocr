@@ -31,6 +31,7 @@ function IntakeForm() {
   const [capturingSide, setCapturingSide] = useState<"front" | "back">("front");
   const [backFile, setBackFile] = useState<File | null>(null);
   const [title, setTitle] = useState("");
+  const [cropping, setCropping] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const needsBackSide = scanMode === "id_card";
@@ -50,6 +51,32 @@ function IntakeForm() {
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f && f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   }
+
+  // Show just the document, not the background it was photographed on: once a scan is
+  // captured, ask the backend to auto-crop/straighten it the same way the real intake
+  // pipeline will, and swap the raw preview for that - instead of displaying the
+  // untouched photo the camera handed us.
+  useEffect(() => {
+    if (!file || !file.type.startsWith("image/")) return;
+    let cancelled = false;
+    queueMicrotask(() => !cancelled && setCropping(true));
+    api
+      .cropPreview(file)
+      .then((blob) => {
+        if (cancelled) return;
+        setPreview((prev) => {
+          if (prev) URL.revokeObjectURL(prev);
+          return URL.createObjectURL(blob);
+        });
+      })
+      .catch(() => {
+        /* keep the raw preview if cropping fails - still better than nothing */
+      })
+      .finally(() => !cancelled && setCropping(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [file]);
 
   async function submit(mode: Mode) {
     if (!file || busyMode) return;
@@ -155,7 +182,13 @@ function IntakeForm() {
         ) : (
           <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-black relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Preview" className="w-full max-h-[380px] object-contain" />
+            <img src={preview} alt="Preview" className={`w-full max-h-[380px] object-contain transition ${cropping ? "opacity-40 blur-[1px]" : ""}`} />
+            {cropping && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30">
+                <Spinner className="w-7 h-7" light />
+                <p className="text-xs text-white/80">Trimming to the document…</p>
+              </div>
+            )}
             <button
               type="button"
               onClick={() => pickFile(null)}

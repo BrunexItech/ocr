@@ -74,7 +74,9 @@ class Document(Base):
     approved_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     approved_by: Mapped[str | None] = mapped_column(String(32), ForeignKey("users.id"), nullable=True)
 
-    versions: Mapped[list["DocumentVersion"]] = relationship(back_populates="document", order_by="DocumentVersion.version")
+    versions: Mapped[list["DocumentVersion"]] = relationship(
+        back_populates="document", order_by="DocumentVersion.version", cascade="all, delete-orphan"
+    )
 
 
 class DocumentVersion(Base):

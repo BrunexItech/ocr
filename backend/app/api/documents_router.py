@@ -100,6 +100,25 @@ async def detect_frame(file: UploadFile = File(...), user: User = Depends(get_cu
     return {"found": True, "points": points, "width": w, "height": h}
 
 
+@router.post("/crop-preview")
+async def crop_preview(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Trims a just-captured photo down to the document itself - same auto-crop/
+    straighten the real intake pipeline uses - so the review screen shown right after
+    capture matches what actually gets stored, instead of the raw, uncropped photo."""
+    data = await file.read()
+    try:
+        image = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    except Exception:
+        image = None
+    if image is None:
+        raise HTTPException(400, "Could not decode image")
+    cropped = auto_crop_and_straighten(image)
+    ok, buf = cv2.imencode(".jpg", cropped, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    if not ok:
+        raise HTTPException(500, "Failed to crop preview")
+    return Response(content=buf.tobytes(), media_type="image/jpeg")
+
+
 @router.post("/intake", response_model=DocOut)
 async def intake(
     file: UploadFile = File(...),
@@ -274,6 +293,29 @@ def get_document(doc_id: str, reveal: bool = False, db: Session = Depends(get_db
         record(db, user=user.name, role=user.role, action="sensitive.reveal", document_id=doc.id)
         db.commit()
     return _doc_to_out(doc, user, db, reveal=reveal)
+
+
+@router.delete("/{doc_id}")
+def delete_document(doc_id: str, db: Session = Depends(get_db),
+                     user: User = Depends(require_roles(Role.admin, Role.intake, Role.reviewer, Role.approver))):
+    """A saved-but-not-yet-accepted scan (anything short of approved) can be thrown
+    away outright - no point making someone reject-then-live-with a mis-scan forever
+    when they never meant to keep it in the first place."""
+    doc = db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    if doc.status == "approved":
+        raise HTTPException(409, "Approved documents can't be deleted - reject it first if it shouldn't be kept")
+    if doc.locked:
+        raise HTTPException(409, "Document is locked; an admin must unlock it first")
+
+    file_path, file_name, status_was = doc.file_path, doc.file_name, doc.status
+    record(db, user=user.name, role=user.role, action="document.delete", document_id=doc.id,
+           detail=f"Deleted {file_name} (status was {status_was})")
+    db.delete(doc)
+    db.commit()
+    Path(file_path).unlink(missing_ok=True)
+    return {"ok": True}
 
 
 class FieldUpdate(BaseModel):

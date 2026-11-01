@@ -218,6 +218,21 @@ function DocumentDetail() {
             Reject
           </button>
         )}
+        {doc.status !== "approved" && !doc.locked && ["admin", "intake", "reviewer", "approver"].includes(user?.role || "") && (
+          <button
+            disabled={busy}
+            onClick={() => {
+              if (!window.confirm("Delete this scan permanently? This can't be undone.")) return;
+              withBusy(async () => {
+                await api.deleteDocument(doc.id);
+                router.push("/documents");
+              });
+            }}
+            className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-red-400 hover:border-red-500/40 px-3 py-1.5 text-sm font-medium"
+          >
+            Delete
+          </button>
+        )}
       </div>
 
       {doc.status === "approved" && ["admin", "approver"].includes(user?.role || "") && (
