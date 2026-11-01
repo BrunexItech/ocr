@@ -67,7 +67,11 @@ def find_document_contour(image: np.ndarray) -> np.ndarray | None:
     """Detect the page/document boundary in a photo (CamScanner-style edge detection)."""
     h, w = image.shape[:2]
     scale = 1000.0 / max(h, w)
-    small = cv2.resize(image, (int(w * scale), int(h * scale))) if scale < 1 else image.copy()
+    if scale < 1:
+        small = cv2.resize(image, (int(w * scale), int(h * scale)))
+    else:
+        small = image.copy()
+        scale = 1.0  # no resize happened - contour coords are already full-scale
 
     gray = _to_gray(small)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
