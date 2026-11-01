@@ -96,6 +96,18 @@ export const api = {
     const qs = new URLSearchParams(body as Record<string, string>).toString();
     return request<UserOut>(`/api/admin/users/${id}?${qs}`, { method: "PATCH" });
   },
+  async listServiceAccounts() {
+    return request<ServiceAccountOut[]>("/api/admin/service-accounts");
+  },
+  async createServiceAccount(body: { name: string; role: string }) {
+    return request<{ id: string; name: string; role: string; api_key: string }>("/api/admin/service-accounts", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+  },
+  async revokeServiceAccount(id: string) {
+    return request<{ ok: boolean }>(`/api/admin/service-accounts/${id}`, { method: "DELETE" });
+  },
   async intake(file: File, typeId?: string, title?: string, kind?: string, fileBack?: File) {
     const form = new FormData();
     form.append("file", file);
@@ -200,6 +212,8 @@ export type DocumentType = {
 };
 
 export type UserOut = { id: string; email: string; name: string; role: string; active: boolean };
+
+export type ServiceAccountOut = { id: string; name: string; key_prefix: string; role: string; active: boolean };
 
 export type DocumentOut = {
   id: string;
