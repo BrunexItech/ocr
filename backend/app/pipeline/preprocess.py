@@ -133,26 +133,40 @@ def auto_crop_and_straighten(image: np.ndarray) -> np.ndarray:
     return cv2.warpPerspective(image, matrix, (max_width, max_height))
 
 
+_SIDE_LABELS = ["FRONT", "BACK"]
+
+
 def stack_vertical(images: list[np.ndarray]) -> np.ndarray:
     """Stitch cropped pages (e.g. the front and back of an ID card) into one image, so
     a two-sided scan still stores/previews/downloads as a single file like any other
-    document. Each page is scaled to a common width and separated by a thin divider."""
+    document. Each side gets a labelled card on a clean white mat with generous
+    breathing room, instead of butting the two scans together with a thin grey line."""
     if len(images) == 1:
         return images[0]
+
+    outer_pad, gap, label_h = 28, 56, 34
     width = max(img.shape[1] for img in images)
-    resized = []
-    for img in images:
+    canvas_width = width + outer_pad * 2
+
+    rows: list[np.ndarray] = []
+    for i, img in enumerate(images):
         h, w = img.shape[:2]
         if w != width:
             img = cv2.resize(img, (width, int(h * width / w)))
-        resized.append(img)
-    divider = np.full((24, width, 3), 200, dtype=np.uint8)
-    parts: list[np.ndarray] = []
-    for i, img in enumerate(resized):
-        if i > 0:
-            parts.append(divider)
-        parts.append(img)
-    return cv2.vconcat(parts)
+        label = _SIDE_LABELS[i] if i < len(_SIDE_LABELS) else f"PAGE {i + 1}"
+        label_row = np.full((label_h, width, 3), 255, dtype=np.uint8)
+        cv2.putText(label_row, label, (0, label_h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (90, 90, 90), 2, cv2.LINE_AA)
+        rows.append(np.vstack([label_row, img]))
+
+    gap_row = np.full((gap, width, 3), 255, dtype=np.uint8)
+    stacked = rows[0]
+    for row in rows[1:]:
+        stacked = np.vstack([stacked, gap_row, row])
+
+    side_pad = np.full((stacked.shape[0], outer_pad, 3), 255, dtype=np.uint8)
+    top_bottom_pad = np.full((outer_pad, canvas_width, 3), 255, dtype=np.uint8)
+    body = np.hstack([side_pad, stacked, side_pad])
+    return np.vstack([top_bottom_pad, body, top_bottom_pad])
 
 
 def sharpen(image: np.ndarray) -> np.ndarray:

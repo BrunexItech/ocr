@@ -16,7 +16,13 @@ from app.core.validation import validate_fields
 from app.db.session import get_db
 from app.models.base import Document, DocumentType, DocumentVersion, Integration, Role, User
 from app.pipeline.engine import default_engine
-from app.pipeline.extract_fields import extract_id_fields, extract_invoice_fields, looks_like_id
+from app.pipeline.extract_fields import (
+    extract_fields_by_schema,
+    extract_generic_fields,
+    extract_id_fields,
+    extract_invoice_fields,
+    looks_like_id,
+)
 from app.pipeline.loader import load_pages
 from app.pipeline.mrz import find_and_parse_mrz, mrz_to_fields
 from app.pipeline.preprocess import apply_enhance_mode, auto_crop_and_straighten, find_document_contour, preprocess_for_ocr, stack_vertical
@@ -186,8 +192,19 @@ async def intake(
             for k, v in extract_id_fields(back_text).items():
                 if not extracted.get(k) and v:
                     extracted[k] = v
+    elif doc_type and doc_type.fields_schema:
+        # The actual point of OCR: pull whatever the admin configured for this document
+        # type (school record, hospital form, sports roster, ...) straight out of the
+        # text, instead of always forcing it through the invoice-shaped extractor.
+        extracted = extract_fields_by_schema(full_text, doc_type.fields_schema)
+        invoice_guess = extract_invoice_fields(full_text)
+        for k in extracted:
+            if not extracted[k] and k in invoice_guess and invoice_guess[k]:
+                extracted[k] = invoice_guess[k]
     else:
         extracted = extract_invoice_fields(full_text)
+        for k, v in extract_generic_fields(full_text).items():
+            extracted.setdefault(k, v)
 
     doc.ocr_text = full_text
     doc.ocr_confidence = overall_conf

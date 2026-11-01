@@ -92,3 +92,53 @@ def extract_id_fields(full_text: str) -> dict:
         m = pattern.search(text)
         fields[key] = m.group(1).strip() if m else None
     return fields
+
+
+_LABEL_VALUE_LINE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 .'/#-]{1,40}?)\s*[:\-]\s*(.+?)\s*$")
+
+
+def _label_pattern(label: str) -> re.Pattern:
+    escaped = re.escape(label.strip())
+    spaced = re.sub(r"\\ ", r"\\s+", escaped)
+    return re.compile(rf"\b{spaced}\s*[:\-]?\s*([^\n]{{1,80}})", re.I)
+
+
+def extract_fields_by_schema(full_text: str, fields_schema: dict) -> dict:
+    """The actual point of running OCR on a configurable document: for every field the
+    admin defined (school record, hospital form, sports roster, whatever the domain),
+    search the OCR'd text for that field's label and pull the value that follows it -
+    instead of forcing every document through the same fixed invoice/ID shape."""
+    text = normalize_ocr_spacing(full_text)
+    fields: dict = {}
+    for key, spec in (fields_schema or {}).items():
+        label = (spec or {}).get("label") or key.replace("_", " ")
+        value = None
+        for candidate in (label, key.replace("_", " ")):
+            m = _label_pattern(candidate).search(text)
+            if m:
+                value = m.group(1).strip().strip(":-").strip()
+                break
+        fields[key] = value or None
+    return fields
+
+
+def extract_generic_fields(full_text: str, limit: int = 25) -> dict:
+    """Last-resort extractor for a document with no admin-configured schema and no
+    invoice/ID shape: pull every 'Label: value' or 'Label - value' line straight out
+    of the OCR text, so scanning still lifts *something* instead of coming back empty."""
+    text = normalize_ocr_spacing(full_text)
+    fields: dict = {}
+    for line in text.splitlines():
+        m = _LABEL_VALUE_LINE.match(line)
+        if not m:
+            continue
+        label, value = m.group(1).strip(), m.group(2).strip()
+        if not label or not value:
+            continue
+        key = re.sub(r"[^a-z0-9]+", "_", label.lower()).strip("_")
+        if not key or key in fields:
+            continue
+        fields[key] = value
+        if len(fields) >= limit:
+            break
+    return fields

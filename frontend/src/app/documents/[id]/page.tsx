@@ -180,7 +180,7 @@ function DocumentDetail() {
               Save corrections
             </button>
             <button
-              disabled={dirty || busy}
+              disabled={!dirty || busy}
               onClick={() => setDraft(doc.fields)}
               className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-1.5 text-sm disabled:opacity-40"
             >
