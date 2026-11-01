@@ -22,13 +22,78 @@ function boxDistance(a: Box, b: Box): number {
   return (Math.abs(a.left - b.left) + Math.abs(a.top - b.top) + Math.abs(a.right - b.right) + Math.abs(a.bottom - b.bottom)) / 4;
 }
 
+function lumAt(data: Uint8ClampedArray, w: number, x: number, y: number): number {
+  const i = (y * w + x) * 4;
+  return 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+}
+
+// YCbCr-space skin-tone test (standard, cheap heuristic) - used to reject hands/arms,
+// which otherwise produce the same brightness-contrast bounding box as a real document.
+function isSkinTone(r: number, g: number, b: number): boolean {
+  const cb = 128 - 0.168736 * r - 0.331264 * g + 0.5 * b;
+  const cr = 128 + 0.5 * r - 0.418688 * g - 0.081312 * b;
+  return cb >= 75 && cb <= 135 && cr >= 130 && cr <= 180 && r > g && g >= b * 0.9;
+}
+
+function skinToneFraction(data: Uint8ClampedArray, w: number, box: Box): number {
+  let skinHits = 0;
+  let total = 0;
+  for (let gy = 0; gy < 6; gy++) {
+    for (let gx = 0; gx < 6; gx++) {
+      const x = Math.round(box.left + (box.right - box.left) * (gx + 0.5) / 6);
+      const y = Math.round(box.top + (box.bottom - box.top) * (gy + 0.5) / 6);
+      const i = (y * w + x) * 4;
+      if (isSkinTone(data[i], data[i + 1], data[i + 2])) skinHits++;
+      total++;
+    }
+  }
+  return total ? skinHits / total : 0;
+}
+
+// Checks whether there's a consistent, straight brightness step along an entire edge
+// (a document's edge) vs. one that wanders / is inconsistent along its length (a hand's
+// irregular, curved silhouette lands in the same averaged bounding box, but fails this).
+function edgeConsistency(
+  data: Uint8ClampedArray,
+  w: number,
+  h: number,
+  axis: "horizontal" | "vertical",
+  fixedCoord: number,
+  rangeStart: number,
+  rangeEnd: number,
+  bg: number,
+  threshold: number,
+  foregroundIsAfter: boolean
+): number {
+  const samples = 12;
+  let hits = 0;
+  for (let s = 0; s < samples; s++) {
+    const t = Math.round(rangeStart + (rangeEnd - rangeStart) * (s + 0.5) / samples);
+    const beforeCoord = foregroundIsAfter ? fixedCoord - 3 : fixedCoord + 3;
+    const afterCoord = foregroundIsAfter ? fixedCoord + 3 : fixedCoord - 3;
+    if (beforeCoord < 0 || afterCoord < 0) continue;
+    const before = axis === "horizontal" ? { x: t, y: beforeCoord } : { x: beforeCoord, y: t };
+    const after = axis === "horizontal" ? { x: t, y: afterCoord } : { x: afterCoord, y: t };
+    if (before.x >= w || before.y >= h || after.x >= w || after.y >= h) continue;
+    const beforeIsBg = Math.abs(lumAt(data, w, before.x, before.y) - bg) <= threshold;
+    const afterIsFg = Math.abs(lumAt(data, w, after.x, after.y) - bg) > threshold;
+    if (beforeIsBg && afterIsFg) hits++;
+  }
+  return hits / samples;
+}
+
+const MIN_EDGE_CONSISTENCY = 0.6; // fraction of an edge's length that must look like a straight step
+const MAX_SKIN_FRACTION = 0.3; // reject if more than this much of the interior reads as skin tone
+
 /**
  * Fast, pure-JS document-edge heuristic: no WASM, no download, runs every frame.
- * Works by comparing row/column average brightness against the border (assumed
- * background) brightness to find where a contrasting rectangular object starts/ends.
- * This is intentionally simple - it only has to decide WHEN to auto-capture. The real
- * perspective-correction/cropping already happens server-side (OpenCV, Python) during
- * OCR processing, so this client-side box doesn't need to be pixel-perfect.
+ * Finds a contrasting rectangular region against the (assumed) background, then runs
+ * two cheap discriminators so it doesn't fire on hands/arms or other non-document
+ * objects: skin-tone rejection, and straight-edge consistency (a document's edges are
+ * sharp, straight lines along their whole length; an irregular silhouette like a hand
+ * is not, even though its averaged bounding box looks rectangular).
+ * This only has to decide WHEN to auto-capture - the real perspective-correction and
+ * cropping already happens server-side (OpenCV, Python) during OCR processing.
  */
 function detectDocumentBox(imageData: ImageData, w: number, h: number): Box | null {
   const data = imageData.data;
@@ -83,7 +148,20 @@ function detectDocumentBox(imageData: ImageData, w: number, h: number): Box | nu
   const area = (bottom - top) * (right - left);
   const frameArea = w * h;
   if (area < frameArea * MIN_AREA_FRACTION || area > frameArea * MAX_AREA_FRACTION) return null;
-  return { left, top, right, bottom };
+
+  const box = { left, top, right, bottom };
+
+  if (skinToneFraction(data, w, box) > MAX_SKIN_FRACTION) return null;
+
+  const topC = edgeConsistency(data, w, h, "horizontal", top, left, right, bg, threshold, true);
+  const bottomC = edgeConsistency(data, w, h, "horizontal", bottom, left, right, bg, threshold, false);
+  const leftC = edgeConsistency(data, w, h, "vertical", left, top, bottom, bg, threshold, true);
+  const rightC = edgeConsistency(data, w, h, "vertical", right, top, bottom, bg, threshold, false);
+  if (topC < MIN_EDGE_CONSISTENCY || bottomC < MIN_EDGE_CONSISTENCY || leftC < MIN_EDGE_CONSISTENCY || rightC < MIN_EDGE_CONSISTENCY) {
+    return null;
+  }
+
+  return box;
 }
 
 type Status = "starting_camera" | "live" | "detecting" | "camera_error";
