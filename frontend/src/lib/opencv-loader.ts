@@ -96,7 +96,10 @@ export function loadOpenCV(): Promise<OpenCVNamespace> {
     } as unknown) as OpenCVNamespace;
 
     const script = document.createElement("script");
-    script.src = "https://docs.opencv.org/4.9.0/opencv.js";
+    // Self-hosted (public/opencv.js) rather than an external CDN - removes a real
+    // point of failure (third-party reachability, CORS, ad/firewall blocking) for
+    // something this feature depends on every time it's used.
+    script.src = "/opencv.js";
     script.async = true;
     script.onerror = () => settle(() => reject(new Error("Could not load the scanner engine - check your connection")));
     document.head.appendChild(script);

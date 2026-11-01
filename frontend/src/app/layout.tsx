@@ -24,20 +24,20 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
-  themeColor: "#0d9488",
+  themeColor: "#121214",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+      <body className="min-h-full flex flex-col bg-zinc-950 text-zinc-100">
         <AuthProvider>
           <PwaRegister />
           <NavBar />
-          <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6">{children}</main>
+          <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-20 md:pb-6">{children}</main>
         </AuthProvider>
       </body>
     </html>

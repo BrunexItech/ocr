@@ -23,7 +23,7 @@ export default function RequireAuth({ roles, children }: { roles?: string[]; chi
   if (!user) return null;
   if (roles && !roles.includes(user.role)) {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-amber-800 text-sm">
+      <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 text-amber-400 text-sm">
         Your role ({user.role}) can&apos;t open this area.
       </div>
     );

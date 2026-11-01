@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getToken } from "@/lib/api";
+import { FileWarning } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -39,15 +40,13 @@ export default function DocThumb({
 
   if (failed) {
     return (
-      <div className={`flex items-center justify-center bg-slate-100 text-slate-400 ${className || ""}`}>
-        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
+      <div className={`flex items-center justify-center bg-zinc-800 text-zinc-500 ${className || ""}`}>
+        <FileWarning className="w-8 h-8" strokeWidth={1.5} />
       </div>
     );
   }
   if (!src) {
-    return <div className={`animate-pulse bg-slate-100 ${className || ""}`} />;
+    return <div className={`animate-pulse bg-zinc-800 ${className || ""}`} />;
   }
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt="Document preview" className={`${fit === "contain" ? "object-contain" : "object-cover"} ${className || ""}`} />;

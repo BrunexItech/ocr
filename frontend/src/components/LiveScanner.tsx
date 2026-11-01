@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { loadOpenCV, OpenCVNamespace } from "@/lib/opencv-loader";
 import Spinner from "@/components/Spinner";
+import { X } from "lucide-react";
 
 type Point = { x: number; y: number };
 
@@ -287,7 +288,7 @@ export default function LiveScanner({
           {cameraFailed && "Camera unavailable"}
         </span>
         <button onClick={() => { stop(); onClose(); }} className="p-2 -mr-2" aria-label="Close scanner">
-          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+          <X className="w-6 h-6" />
         </button>
       </div>
 
@@ -329,7 +330,7 @@ export default function LiveScanner({
           </div>
         )}
         {status === "live" && !engineReady && errorMsg && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-500/90 text-white text-xs px-3 py-1.5 rounded-full">
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-500/100/90 text-white text-xs px-3 py-1.5 rounded-full">
             Auto-detect unavailable - use the capture button below
           </div>
         )}
@@ -339,7 +340,7 @@ export default function LiveScanner({
         {status === "live" && (
           <button
             onClick={() => captureNow(lastQuadRef.current || undefined)}
-            className="w-16 h-16 rounded-full bg-white ring-4 ring-white/30 active:scale-95 transition"
+            className="w-16 h-16 rounded-full bg-zinc-900 ring-4 ring-white/30 active:scale-95 transition"
             aria-label="Capture"
           />
         )}

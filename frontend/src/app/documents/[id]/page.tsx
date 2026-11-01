@@ -38,7 +38,7 @@ function DocumentDetail() {
     }
   }, [user]);
 
-  if (!doc) return <p className="text-sm text-slate-500">Loading…</p>;
+  if (!doc) return <p className="text-sm text-zinc-500">Loading…</p>;
 
   const canEdit = !doc.locked && ["admin", "reviewer", "approver"].includes(user?.role || "");
   const dirty = JSON.stringify(draft) !== JSON.stringify(doc.fields);
@@ -58,20 +58,20 @@ function DocumentDetail() {
 
   return (
     <div className="max-w-3xl">
-      <button onClick={() => router.push("/documents")} className="text-sm text-slate-500 hover:text-slate-800 mb-3">
+      <button onClick={() => router.push("/documents")} className="text-sm text-zinc-500 hover:text-zinc-200 mb-3">
         ← Back to documents
       </button>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div className="min-w-0">
           <h1 className="text-xl font-semibold font-mono break-all">{doc.tracking_no}</h1>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-zinc-500 mt-1">
             {doc.detected_kind} · {doc.file_name} · {doc.status.replace("_", " ")} · confidence{" "}
             {doc.ocr_confidence != null ? `${(doc.ocr_confidence * 100).toFixed(0)}%` : "—"}
-            {doc.locked && <span className="ml-2 text-slate-400">· locked</span>}
+            {doc.locked && <span className="ml-2 text-zinc-500">· locked</span>}
           </p>
         </div>
         <button
-          className="text-sm rounded-md border border-slate-300 px-3 py-1.5 hover:bg-slate-50 self-start sm:self-auto whitespace-nowrap"
+          className="text-sm rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-1.5 hover:bg-zinc-800 self-start sm:self-auto whitespace-nowrap"
           onClick={() => withBusy(() => api.downloadOriginal(doc.id, doc.file_name))}
         >
           Download original
@@ -79,22 +79,22 @@ function DocumentDetail() {
       </div>
 
       {doc.reasons.length > 0 && (
-        <div className="rounded-md bg-amber-50 border border-amber-200 p-3 text-sm text-amber-800 mb-4">
+        <div className="rounded-md bg-amber-500/10 border border-amber-500/30 p-3 text-sm text-amber-400 mb-4">
           <b>Needs attention:</b> {doc.reasons.join("; ")}
         </div>
       )}
-      {error && <div className="rounded-md bg-red-50 border border-red-200 p-3 text-sm text-red-700 mb-4">{error}</div>}
-      {notice && <div className="rounded-md bg-emerald-50 border border-emerald-200 p-3 text-sm text-emerald-800 mb-4">{notice}</div>}
+      {error && <div className="rounded-md bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 mb-4">{error}</div>}
+      {notice && <div className="rounded-md bg-emerald-500/10 border border-emerald-500/30 p-3 text-sm text-emerald-400 mb-4">{notice}</div>}
 
-      <div className="rounded-2xl overflow-hidden border border-slate-200 bg-slate-900 mb-4 max-h-[420px]">
+      <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-black mb-4 max-h-[420px]">
         <DocThumb docId={doc.id} fit="contain" className="w-full max-h-[420px]" />
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-lg p-5 mb-4">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-slate-700">Extracted fields</h2>
+          <h2 className="text-sm font-semibold text-zinc-300">Extracted fields</h2>
           {(user?.role === "admin" || user?.role === "approver") && (
-            <label className="flex items-center gap-2 text-xs text-slate-500">
+            <label className="flex items-center gap-2 text-xs text-zinc-500">
               <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} />
               Reveal sensitive fields
             </label>
@@ -103,25 +103,25 @@ function DocumentDetail() {
         <div className="space-y-3">
           {Object.entries(draft).map(([key, value]) => (
             <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-3 sm:items-center">
-              <label className="text-sm text-slate-600 sm:col-span-1">
+              <label className="text-sm text-zinc-400 sm:col-span-1">
                 {key}
                 {doc.field_confidence[key] != null && (
-                  <span className="block text-xs text-slate-400">{(doc.field_confidence[key] * 100).toFixed(0)}% confidence</span>
+                  <span className="block text-xs text-zinc-500">{(doc.field_confidence[key] * 100).toFixed(0)}% confidence</span>
                 )}
               </label>
               <input
-                className="sm:col-span-2 rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:bg-slate-50 disabled:text-slate-500"
+                className="sm:col-span-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-1.5 text-sm disabled:bg-zinc-800 disabled:text-zinc-500"
                 value={String(value ?? "")}
                 disabled={!canEdit}
                 onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
               />
             </div>
           ))}
-          {Object.keys(draft).length === 0 && <p className="text-sm text-slate-400">No fields extracted.</p>}
+          {Object.keys(draft).length === 0 && <p className="text-sm text-zinc-500">No fields extracted.</p>}
         </div>
 
         {canEdit && (
-          <div className="flex gap-2 mt-4 pt-4 border-t border-slate-100">
+          <div className="flex gap-2 mt-4 pt-4 border-t border-zinc-800">
             <button
               disabled={!dirty || busy}
               onClick={() =>
@@ -132,14 +132,14 @@ function DocumentDetail() {
                   setNotice("Corrections saved as a new version.");
                 })
               }
-              className="rounded-md bg-slate-800 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+              className="rounded-md bg-zinc-700 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-40"
             >
               Save corrections
             </button>
             <button
               disabled={dirty || busy}
               onClick={() => setDraft(doc.fields)}
-              className="rounded-md border border-slate-300 px-3 py-1.5 text-sm disabled:opacity-40"
+              className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-1.5 text-sm disabled:opacity-40"
             >
               Discard
             </button>
@@ -170,7 +170,7 @@ function DocumentDetail() {
           <button
             disabled={busy}
             onClick={() => withBusy(async () => setDoc(await api.rejectDocument(doc.id, "Rejected by approver")))}
-            className="rounded-md border border-red-300 text-red-700 px-3 py-1.5 text-sm font-medium"
+            className="rounded-md border border-red-300 text-red-400 px-3 py-1.5 text-sm font-medium"
           >
             Reject
           </button>
@@ -178,17 +178,17 @@ function DocumentDetail() {
       </div>
 
       {doc.status === "approved" && ["admin", "approver"].includes(user?.role || "") && (
-        <div className="bg-white border border-slate-200 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-slate-700 mb-3">Push selected fields to a database</h2>
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-zinc-300 mb-3">Push selected fields to a database</h2>
           {integrations.length === 0 ? (
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-zinc-500">
               No integrations configured yet. Add one under Admin → Integrations (or via the API) to push approved
               data onward.
             </p>
           ) : (
             <>
               <select
-                className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm mb-3"
+                className="w-full rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm mb-3"
                 value={pushIntegration}
                 onChange={(e) => setPushIntegration(e.target.value)}
               >
@@ -201,7 +201,7 @@ function DocumentDetail() {
               </select>
               <div className="flex flex-wrap gap-3 mb-3">
                 {Object.keys(doc.fields).map((k) => (
-                  <label key={k} className="flex items-center gap-1.5 text-sm text-slate-600">
+                  <label key={k} className="flex items-center gap-1.5 text-sm text-zinc-400">
                     <input
                       type="checkbox"
                       checked={pushFields.includes(k)}
@@ -221,7 +221,7 @@ function DocumentDetail() {
                     setNotice(`Pushed ${pushFields.length} field(s) to the selected destination.`);
                   })
                 }
-                className="rounded-md bg-slate-800 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+                className="rounded-md bg-zinc-700 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-40"
               >
                 Push selected fields
               </button>

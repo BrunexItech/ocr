@@ -27,22 +27,22 @@ function AuditAdmin() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-semibold mb-1">Audit trail</h1>
-          <p className="text-sm text-slate-500">Hash-chained, tamper-evident log of every action in the system.</p>
+          <p className="text-sm text-zinc-500">Hash-chained, tamper-evident log of every action in the system.</p>
         </div>
-        <button onClick={onVerify} disabled={busy} className="rounded-md bg-slate-800 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50 self-start sm:self-auto whitespace-nowrap">
+        <button onClick={onVerify} disabled={busy} className="rounded-md bg-zinc-700 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50 self-start sm:self-auto whitespace-nowrap">
           {busy ? "Verifying…" : "Verify chain integrity"}
         </button>
       </div>
 
       {verify && (
-        <div className={`rounded-md border p-3 text-sm mb-4 ${verify.ok ? "bg-emerald-50 border-emerald-200 text-emerald-800" : "bg-red-50 border-red-200 text-red-700"}`}>
+        <div className={`rounded-md border p-3 text-sm mb-4 ${verify.ok ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400" : "bg-red-500/10 border-red-500/30 text-red-400"}`}>
           {verify.ok ? `Chain intact · ${verify.count} events verified.` : `Tampering detected: ${verify.reason}`}
         </div>
       )}
 
-      <div className="bg-white border border-slate-200 rounded-lg overflow-hidden overflow-x-auto">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden overflow-x-auto">
         <table className="w-full text-sm min-w-[720px]">
-          <thead className="bg-slate-50 text-slate-500 text-xs uppercase">
+          <thead className="bg-zinc-800 text-zinc-500 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-2">#</th>
               <th className="text-left px-4 py-2">Time</th>
@@ -53,12 +53,12 @@ function AuditAdmin() {
           </thead>
           <tbody>
             {events.map((e) => (
-              <tr key={e.seq} className="border-t border-slate-100">
-                <td className="px-4 py-2 font-mono text-xs text-slate-400">{e.seq}</td>
-                <td className="px-4 py-2 text-xs text-slate-500 whitespace-nowrap">{new Date(e.ts).toLocaleString()}</td>
+              <tr key={e.seq} className="border-t border-zinc-800">
+                <td className="px-4 py-2 font-mono text-xs text-zinc-500">{e.seq}</td>
+                <td className="px-4 py-2 text-xs text-zinc-500 whitespace-nowrap">{new Date(e.ts).toLocaleString()}</td>
                 <td className="px-4 py-2">{e.user}</td>
                 <td className="px-4 py-2 font-mono text-xs">{e.action}</td>
-                <td className="px-4 py-2 text-slate-500">{e.detail}</td>
+                <td className="px-4 py-2 text-zinc-500">{e.detail}</td>
               </tr>
             ))}
           </tbody>
