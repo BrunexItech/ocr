@@ -15,16 +15,9 @@ from app.core.masking import mask_fields
 from app.core.validation import validate_fields
 from app.db.session import get_db
 from app.models.base import Document, DocumentType, DocumentVersion, Integration, Role, User
+from app.pipeline.classify import classify_and_extract
 from app.pipeline.engine import default_engine
-from app.pipeline.extract_fields import (
-    extract_fields_by_schema,
-    extract_generic_fields,
-    extract_id_fields,
-    extract_invoice_fields,
-    looks_like_id,
-)
 from app.pipeline.loader import load_pages
-from app.pipeline.mrz import find_and_parse_mrz, mrz_to_fields
 from app.pipeline.preprocess import apply_enhance_mode, auto_crop_and_straighten, find_document_contour, preprocess_for_ocr, stack_vertical
 
 router = APIRouter()
@@ -193,37 +186,9 @@ async def intake(
     full_text = "\n\n".join(texts)
     overall_conf = sum(confidences) / len(confidences) if confidences else 0.0
 
-    looks_identity = kind in ("id_card", "passport") or (doc_type and doc_type.domain == "identity")
-    treat_as_identity = looks_identity or (kind is None and not doc_type and looks_like_id(full_text))
-
-    mrz_result = find_and_parse_mrz(full_text) if (treat_as_identity or not doc_type) else None
-    if mrz_result:
-        extracted = mrz_to_fields(mrz_result)
-        if not mrz_result.valid:
-            overall_conf = min(overall_conf, 0.5)
-    elif treat_as_identity:
-        # Most ID cards (unlike passports) don't carry a machine-readable zone at all -
-        # fall back to pulling labelled fields straight out of the OCR text instead of
-        # forcing the document through the invoice extractor. When there's a back side,
-        # merge both: either side can carry a field the other is missing.
-        extracted = extract_id_fields(front_text)
-        if back_text:
-            for k, v in extract_id_fields(back_text).items():
-                if not extracted.get(k) and v:
-                    extracted[k] = v
-    elif doc_type and doc_type.fields_schema:
-        # The actual point of OCR: pull whatever the admin configured for this document
-        # type (school record, hospital form, sports roster, ...) straight out of the
-        # text, instead of always forcing it through the invoice-shaped extractor.
-        extracted = extract_fields_by_schema(full_text, doc_type.fields_schema)
-        invoice_guess = extract_invoice_fields(full_text)
-        for k in extracted:
-            if not extracted[k] and k in invoice_guess and invoice_guess[k]:
-                extracted[k] = invoice_guess[k]
-    else:
-        extracted = extract_invoice_fields(full_text)
-        for k, v in extract_generic_fields(full_text).items():
-            extracted.setdefault(k, v)
+    extracted, mrz_result, overall_conf = classify_and_extract(
+        full_text, front_text, back_text, kind, doc_type, overall_conf
+    )
 
     doc.ocr_text = full_text
     doc.ocr_confidence = overall_conf

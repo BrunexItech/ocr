@@ -23,6 +23,7 @@ export default function NavBar() {
   const [open, setOpen] = useState(false);
 
   if (loading) return null;
+  if (pathname?.startsWith("/embed")) return null; // embedded widget: no app chrome, just the scanner itself
   const links = user ? LINKS.filter((l) => l.roles.includes(user.role)) : [];
 
   return (

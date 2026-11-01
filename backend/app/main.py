@@ -5,6 +5,7 @@ from app.api.admin_router import router as admin_router
 from app.api.audit_router import router as audit_router
 from app.api.auth_router import router as auth_router
 from app.api.documents_router import router as documents_router
+from app.api.embed_router import router as embed_router
 from app.api.integrations_router import router as integrations_router
 from app.api.zones_router import router as zones_router
 from app.core.config import settings
@@ -33,6 +34,7 @@ app.include_router(zones_router, prefix="/api/documents", tags=["zones"])
 app.include_router(documents_router, prefix="/api/documents", tags=["documents"])
 app.include_router(integrations_router, prefix="/api/integrations", tags=["integrations"])
 app.include_router(audit_router, prefix="/api/audit", tags=["audit"])
+app.include_router(embed_router, prefix="/api/embed", tags=["embed"])
 
 
 @app.get("/api/health")

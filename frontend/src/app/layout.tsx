@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import NavBar from "@/components/NavBar";
+import AppMain from "@/components/AppMain";
 import PwaRegister from "@/components/PwaRegister";
 
 const geistSans = Geist({
@@ -37,7 +38,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <AuthProvider>
           <PwaRegister />
           <NavBar />
-          <main className="flex-1 w-full max-w-6xl mx-auto px-4 sm:px-6 py-6 pb-20 md:pb-6">{children}</main>
+          <AppMain>{children}</AppMain>
         </AuthProvider>
       </body>
     </html>
