@@ -100,7 +100,10 @@ _LABEL_VALUE_LINE = re.compile(r"^\s*([A-Za-z][A-Za-z0-9 .'/#-]{1,40}?)\s*[:\-]\
 def _label_pattern(label: str) -> re.Pattern:
     escaped = re.escape(label.strip())
     spaced = re.sub(r"\\ ", r"\\s+", escaped)
-    return re.compile(rf"\b{spaced}\s*[:\-]?\s*([^\n]{{1,80}})", re.I)
+    # Anchored to the start of a line (so "Sport" can't match inside a "SPORTS"
+    # elsewhere on the page, e.g. a form's own title) and a trailing word boundary
+    # (so "Sport" doesn't match the "Sport" prefix of "Sports" either).
+    return re.compile(rf"^\s*{spaced}\b\s*[:\-]?\s*([^\n]{{1,80}})", re.I | re.MULTILINE)
 
 
 def extract_fields_by_schema(full_text: str, fields_schema: dict) -> dict:

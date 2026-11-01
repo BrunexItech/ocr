@@ -64,7 +64,15 @@ def embed_extract(
     )
 
     fields = [
-        {"key": k, "value": v, "confidence": round(overall_conf, 4), "bbox": None}
+        {
+            "key": k,
+            "value": v if v else "",
+            # A field we never found a labelled value for is reported as blank with
+            # zero confidence - not the whole document's average score - so it reads
+            # unambiguously as "not read," never as a guess.
+            "confidence": round(overall_conf, 4) if v else 0.0,
+            "bbox": None,
+        }
         for k, v in extracted.items()
     ]
     return {
