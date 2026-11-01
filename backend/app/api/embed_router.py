@@ -75,11 +75,17 @@ def embed_extract(
         }
         for k, v in extracted.items()
     ]
+    if doc_type:
+        detected_kind = doc_type.name
+    elif mrz_result or kind in ("id_card", "passport"):
+        detected_kind = "ID card / Passport"
+    elif extracted.get("invoice_number") or extracted.get("total_amount"):
+        detected_kind = "Invoice / Receipt"
+    else:
+        detected_kind = "Document"
+
     return {
         "fields": fields,
         "ocr_confidence": round(overall_conf, 4),
-        "detected_kind": (
-            "ID card / Passport" if (mrz_result or kind in ("id_card", "passport")) else
-            "Invoice / Receipt" if "invoice_number" in extracted else "Document"
-        ),
+        "detected_kind": detected_kind,
     }
