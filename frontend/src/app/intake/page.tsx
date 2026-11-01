@@ -51,7 +51,7 @@ function IntakeForm() {
     setError("");
     setResult(null);
     try {
-      const doc = await api.intake(file, mode === "extract" ? typeId || undefined : undefined, title.trim() || undefined);
+      const doc = await api.intake(file, mode === "extract" ? typeId || undefined : undefined, title.trim() || undefined, scanMode);
       setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence, detectedKind: doc.detected_kind });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");

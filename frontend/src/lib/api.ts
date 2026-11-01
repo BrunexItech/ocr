@@ -96,12 +96,13 @@ export const api = {
     const qs = new URLSearchParams(body as Record<string, string>).toString();
     return request<UserOut>(`/api/admin/users/${id}?${qs}`, { method: "PATCH" });
   },
-  async intake(file: File, typeId?: string, title?: string) {
+  async intake(file: File, typeId?: string, title?: string, kind?: string) {
     const form = new FormData();
     form.append("file", file);
     const params = new URLSearchParams();
     if (typeId) params.set("type_id", typeId);
     if (title) params.set("title", title);
+    if (kind) params.set("kind", kind);
     const qs = params.toString();
     return request<DocumentOut>(`/api/documents/intake${qs ? `?${qs}` : ""}`, { method: "POST", body: form });
   },

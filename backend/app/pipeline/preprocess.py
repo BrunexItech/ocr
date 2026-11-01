@@ -84,14 +84,26 @@ def find_document_contour(image: np.ndarray) -> np.ndarray | None:
     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
 
     img_area = small.shape[0] * small.shape[1]
+    min_area = img_area * 0.1
+    best_large_contour = None
     for c in contours:
         area = cv2.contourArea(c)
-        if area < img_area * 0.2:
+        if area < min_area:
             continue
+        if best_large_contour is None:
+            best_large_contour = c
         peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.02 * peri, True)
         if len(approx) == 4:
             return approx.reshape(4, 2).astype("float32") / scale
+
+    # No clean 4-point polygon (common on glossy/laminated ID cards where glare and
+    # rounded corners break up the edge trace) - fall back to the largest contour's
+    # rotated bounding box, which still trims off the surrounding background instead
+    # of giving up and returning the whole frame.
+    if best_large_contour is not None:
+        box = cv2.boxPoints(cv2.minAreaRect(best_large_contour))
+        return box.astype("float32") / scale
     return None
 
 

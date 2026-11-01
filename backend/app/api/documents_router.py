@@ -16,7 +16,7 @@ from app.core.validation import validate_fields
 from app.db.session import get_db
 from app.models.base import Document, DocumentType, DocumentVersion, Integration, Role, User
 from app.pipeline.engine import default_engine
-from app.pipeline.extract_fields import extract_invoice_fields
+from app.pipeline.extract_fields import extract_id_fields, extract_invoice_fields, looks_like_id
 from app.pipeline.loader import load_pages
 from app.pipeline.mrz import find_and_parse_mrz, mrz_to_fields
 from app.pipeline.preprocess import apply_enhance_mode, auto_crop_and_straighten, find_document_contour, preprocess_for_ocr
@@ -55,9 +55,9 @@ class DocOut(BaseModel):
 
 def _detect_kind(fields: dict) -> str:
     """Human-readable label for what the extractor recognised, derived from which
-    field shape came back (MRZ identity fields vs invoice/receipt fields) - no extra
-    DB column needed since this is computed from the extracted data itself."""
-    if "mrz_checksum_valid" in fields:
+    field shape came back (MRZ/ID-heuristic fields vs invoice/receipt fields) - no
+    extra DB column needed since this is computed from the extracted data itself."""
+    if any(k in fields for k in ("mrz_checksum_valid", "document_number", "surname", "id_number", "date_of_birth")):
         return "ID card / Passport"
     if any(k in fields for k in ("invoice_number", "total_amount")):
         return "Invoice / Receipt"
@@ -99,6 +99,7 @@ async def intake(
     file: UploadFile = File(...),
     type_id: str | None = None,
     title: str | None = None,
+    kind: str | None = None,  # optional hint from the scan-mode card: document | id_card | passport
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(Role.admin, Role.intake)),
 ):
@@ -143,11 +144,19 @@ async def intake(
     full_text = "\n\n".join(texts)
     overall_conf = sum(confidences) / len(confidences) if confidences else 0.0
 
-    mrz_result = find_and_parse_mrz(full_text) if (not doc_type or doc_type.domain == "identity") else None
+    looks_identity = kind in ("id_card", "passport") or (doc_type and doc_type.domain == "identity")
+    treat_as_identity = looks_identity or (kind is None and not doc_type and looks_like_id(full_text))
+
+    mrz_result = find_and_parse_mrz(full_text) if (treat_as_identity or not doc_type) else None
     if mrz_result:
         extracted = mrz_to_fields(mrz_result)
         if not mrz_result.valid:
             overall_conf = min(overall_conf, 0.5)
+    elif treat_as_identity:
+        # Most ID cards (unlike passports) don't carry a machine-readable zone at all -
+        # fall back to pulling labelled fields straight out of the OCR text instead of
+        # forcing the document through the invoice extractor.
+        extracted = extract_id_fields(full_text)
     else:
         extracted = extract_invoice_fields(full_text)
 

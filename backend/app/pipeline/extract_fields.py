@@ -51,3 +51,44 @@ def extract_invoice_fields(full_text: str) -> dict:
         "total_amount": total,
         "line_count": len(lines),
     }
+
+
+_ID_KEYWORDS = re.compile(
+    r"\b(identity|identification|national\s*id|id\s*card|id\s*no|id\s*number|passport|republic\s+of|"
+    r"date\s+of\s+birth|d\.?o\.?b|sex|gender|nationality|place\s+of\s+birth|date\s+of\s+issue|"
+    r"date\s+of\s+expiry|expiry\s+date|serial\s+number|holder|signature)\b", re.I,
+)
+_INVOICE_KEYWORDS = re.compile(
+    r"\b(invoice|receipt|order\s*no|subtotal|sub-total|amount\s+due|total\s+due|qty|quantity|"
+    r"unit\s+price|vat|tax\s+id|payment\s+terms|bill\s+to|ship\s+to)\b", re.I,
+)
+
+_ID_LABELS = {
+    "id_number": re.compile(r"\b(?:id|identity|serial)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9]{4,20})", re.I),
+    "date_of_birth": re.compile(r"\b(?:date\s+of\s+birth|d\.?o\.?b\.?)\s*[:\-]?\s*([\d]{1,2}[/\-.][\d]{1,2}[/\-.][\d]{2,4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})", re.I),
+    "date_of_issue": re.compile(r"\bdate\s+of\s+issue\s*[:\-]?\s*([\d]{1,2}[/\-.][\d]{1,2}[/\-.][\d]{2,4})", re.I),
+    "date_of_expiry": re.compile(r"\b(?:date\s+of\s+expiry|expiry\s+date)\s*[:\-]?\s*([\d]{1,2}[/\-.][\d]{1,2}[/\-.][\d]{2,4})", re.I),
+    "sex": re.compile(r"\b(?:sex|gender)\s*[:\-]?\s*(male|female|[mf])\b", re.I),
+    "nationality": re.compile(r"\bnationality\s*[:\-]?\s*([A-Za-z ]{3,30})(?=\n|$)", re.I),
+    "full_name": re.compile(r"\b(?:full\s+name|name)\s*[:\-]?\s*([A-Za-z.'\- ]{3,60})(?=\n|$)", re.I),
+}
+
+
+def looks_like_id(full_text: str) -> bool:
+    """Cheap keyword vote used only when there's no MRZ to go on - decides whether
+    to run the ID-field heuristic or the invoice one on the OCR'd text."""
+    id_hits = len(_ID_KEYWORDS.findall(full_text))
+    invoice_hits = len(_INVOICE_KEYWORDS.findall(full_text))
+    return id_hits > invoice_hits
+
+
+def extract_id_fields(full_text: str) -> dict:
+    """Label-based fallback for ID cards/passports that have no machine-readable zone
+    at all (most national ID cards don't) - pulls whatever labelled fields it can find
+    instead of forcing the document through the invoice extractor."""
+    text = normalize_ocr_spacing(full_text)
+    fields: dict = {}
+    for key, pattern in _ID_LABELS.items():
+        m = pattern.search(text)
+        fields[key] = m.group(1).strip() if m else None
+    return fields
