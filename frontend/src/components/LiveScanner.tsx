@@ -1,28 +1,92 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { loadOpenCV, OpenCVNamespace } from "@/lib/opencv-loader";
 import Spinner from "@/components/Spinner";
 import { X } from "lucide-react";
 
-type Point = { x: number; y: number };
+type Box = { left: number; top: number; right: number; bottom: number };
 
 const STABILITY_FRAMES = 6; // consecutive detections required before auto-capture
-const STABILITY_TOLERANCE = 14; // px of allowed corner drift between frames to count as "stable"
-const MIN_AREA_FRACTION = 0.18; // detected quad must cover at least this much of the frame
+const STABILITY_TOLERANCE = 10; // px of allowed edge drift between frames to count as "stable"
+const MIN_AREA_FRACTION = 0.15; // detected box must cover at least this much of the frame
+const MAX_AREA_FRACTION = 0.97; // ...but not basically the whole frame (= no real edge found)
+const WORK_SIZE = 220; // downscale target for the detector - this is what keeps it instant/cheap
 
-function orderCorners(pts: Point[]): Point[] {
-  const sorted = [...pts].sort((a, b) => a.y - b.y);
-  const top = sorted.slice(0, 2).sort((a, b) => a.x - b.x);
-  const bottom = sorted.slice(2, 4).sort((a, b) => a.x - b.x);
-  return [top[0], top[1], bottom[1], bottom[0]]; // tl, tr, br, bl
+function median(values: number[]): number {
+  const s = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
 }
 
-function cornerDistance(a: Point[], b: Point[]): number {
-  return a.reduce((sum, p, i) => sum + Math.hypot(p.x - b[i].x, p.y - b[i].y), 0) / a.length;
+function boxDistance(a: Box, b: Box): number {
+  return (Math.abs(a.left - b.left) + Math.abs(a.top - b.top) + Math.abs(a.right - b.right) + Math.abs(a.bottom - b.bottom)) / 4;
 }
 
-type Status = "starting_camera" | "live" | "detecting" | "camera_error" | "engine_error";
+/**
+ * Fast, pure-JS document-edge heuristic: no WASM, no download, runs every frame.
+ * Works by comparing row/column average brightness against the border (assumed
+ * background) brightness to find where a contrasting rectangular object starts/ends.
+ * This is intentionally simple - it only has to decide WHEN to auto-capture. The real
+ * perspective-correction/cropping already happens server-side (OpenCV, Python) during
+ * OCR processing, so this client-side box doesn't need to be pixel-perfect.
+ */
+function detectDocumentBox(imageData: ImageData, w: number, h: number): Box | null {
+  const data = imageData.data;
+  const rowAvg = new Float32Array(h);
+  const colAvg = new Float32Array(w);
+
+  for (let y = 0; y < h; y++) {
+    let rowSum = 0;
+    const base = y * w * 4;
+    for (let x = 0; x < w; x++) {
+      const i = base + x * 4;
+      const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+      rowSum += lum;
+      colAvg[x] += lum;
+    }
+    rowAvg[y] = rowSum / w;
+  }
+  for (let x = 0; x < w; x++) colAvg[x] /= h;
+
+  const marginX = Math.max(2, Math.floor(w * 0.08));
+  const marginY = Math.max(2, Math.floor(h * 0.08));
+  const bgSamples: number[] = [];
+  for (let y = 0; y < marginY; y++) bgSamples.push(rowAvg[y], rowAvg[h - 1 - y]);
+  for (let x = 0; x < marginX; x++) bgSamples.push(colAvg[x], colAvg[w - 1 - x]);
+  const bg = median(bgSamples);
+  const threshold = 24;
+
+  const findEdge = (arr: Float32Array, len: number, fromStart: boolean): number | null => {
+    const dir = fromStart ? 1 : -1;
+    const start = fromStart ? 0 : len - 1;
+    let runLen = 0;
+    for (let i = 0; i < len; i++) {
+      const idx = start + dir * i;
+      const isFg = Math.abs(arr[idx] - bg) > threshold;
+      if (isFg) {
+        runLen++;
+        if (runLen === 3) return idx - dir * 2;
+      } else {
+        runLen = 0;
+      }
+    }
+    return null;
+  };
+
+  const top = findEdge(rowAvg, h, true);
+  const bottom = findEdge(rowAvg, h, false);
+  const left = findEdge(colAvg, w, true);
+  const right = findEdge(colAvg, w, false);
+  if (top == null || bottom == null || left == null || right == null) return null;
+  if (bottom <= top || right <= left) return null;
+
+  const area = (bottom - top) * (right - left);
+  const frameArea = w * h;
+  if (area < frameArea * MIN_AREA_FRACTION || area > frameArea * MAX_AREA_FRACTION) return null;
+  return { left, top, right, bottom };
+}
+
+type Status = "starting_camera" | "live" | "detecting" | "camera_error";
 
 export default function LiveScanner({
   onCapture,
@@ -36,17 +100,13 @@ export default function LiveScanner({
   const workRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
-  const historyRef = useRef<Point[][]>([]);
+  const historyRef = useRef<Box[]>([]);
   const capturedRef = useRef(false);
-  const cvRef = useRef<OpenCVNamespace | null>(null);
-  const lastQuadRef = useRef<Point[] | null>(null);
+  const lastBoxRef = useRef<Box | null>(null);
 
   const [status, setStatus] = useState<Status>("starting_camera");
   const [errorMsg, setErrorMsg] = useState("");
-  const [hasQuad, setHasQuad] = useState(false);
-  const [engineReady, setEngineReady] = useState(false);
-  const [engineStatus, setEngineStatus] = useState("Loading auto-detect…");
-  const [engineFailed, setEngineFailed] = useState(false);
+  const [hasBox, setHasBox] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   const stop = useCallback(() => {
@@ -64,54 +124,34 @@ export default function LiveScanner({
     [onCapture, stop]
   );
 
-  // Crops+straightens via the detected quad when available; otherwise just takes the
-  // raw frame as-is. Used by both auto-capture and the manual shutter button.
+  // Crops to the detected box (with a little padding) when available; otherwise takes
+  // the full raw frame. Either way, the backend re-detects edges and straightens the
+  // image properly during OCR processing - this client-side crop is just a nicety.
   const captureNow = useCallback(
-    (quad?: Point[]) => {
+    (box?: Box) => {
       if (capturedRef.current) return;
       capturedRef.current = true;
       setStatus("detecting");
       const video = videoRef.current!;
-      const full = document.createElement("canvas");
-      full.width = video.videoWidth;
-      full.height = video.videoHeight;
-      const ctx = full.getContext("2d")!;
-      ctx.drawImage(video, 0, 0, full.width, full.height);
+      const vw = video.videoWidth;
+      const vh = video.videoHeight;
 
-      const cv = cvRef.current;
-      if (!quad || !cv) {
-        full.toBlob(finishCapture, "image/jpeg", 0.92);
-        return;
+      let sx = 0, sy = 0, sw = vw, sh = vh;
+      if (box) {
+        const padX = (box.right - box.left) * 0.04;
+        const padY = (box.bottom - box.top) * 0.04;
+        sx = Math.max(0, box.left - padX);
+        sy = Math.max(0, box.top - padY);
+        sw = Math.min(vw - sx, box.right - box.left + padX * 2);
+        sh = Math.min(vh - sy, box.bottom - box.top + padY * 2);
       }
 
-      const ordered = orderCorners(quad);
-      const widthA = Math.hypot(ordered[2].x - ordered[3].x, ordered[2].y - ordered[3].y);
-      const widthB = Math.hypot(ordered[1].x - ordered[0].x, ordered[1].y - ordered[0].y);
-      const heightA = Math.hypot(ordered[1].x - ordered[2].x, ordered[1].y - ordered[2].y);
-      const heightB = Math.hypot(ordered[0].x - ordered[3].x, ordered[0].y - ordered[3].y);
-      const outW = Math.max(widthA, widthB);
-      const outH = Math.max(heightA, heightB);
-
-      try {
-        const src = cv.imread(full);
-        const srcPts = cv.matFromArray(4, 1, cv.CV_32FC2, ordered.flatMap((p) => [p.x, p.y]));
-        const dstPts = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, outW, 0, outW, outH, 0, outH]);
-        const m = cv.getPerspectiveTransform(srcPts, dstPts);
-        const dst = new cv.Mat();
-        cv.warpPerspective(src, dst, m, new cv.Size(Math.round(outW), Math.round(outH)));
-        const outCanvas = document.createElement("canvas");
-        outCanvas.width = Math.round(outW);
-        outCanvas.height = Math.round(outH);
-        cv.imshow(outCanvas, dst);
-        src.delete();
-        srcPts.delete();
-        dstPts.delete();
-        m.delete();
-        dst.delete();
-        outCanvas.toBlob(finishCapture, "image/jpeg", 0.92);
-      } catch {
-        full.toBlob(finishCapture, "image/jpeg", 0.92);
-      }
+      const out = document.createElement("canvas");
+      out.width = Math.round(sw);
+      out.height = Math.round(sh);
+      const ctx = out.getContext("2d")!;
+      ctx.drawImage(video, sx, sy, sw, sh, 0, 0, out.width, out.height);
+      out.toBlob(finishCapture, "image/jpeg", 0.92);
     },
     [finishCapture]
   );
@@ -122,105 +162,62 @@ export default function LiveScanner({
     historyRef.current = [];
 
     function loop() {
-      const cv = cvRef.current;
       const video = videoRef.current;
       const overlay = overlayRef.current;
       const work = workRef.current;
-      if (!cv || !video || !overlay || !work || video.videoWidth === 0) {
+      if (!video || !overlay || !work || video.videoWidth === 0) {
         rafRef.current = requestAnimationFrame(loop);
         return;
       }
-      const scale = 480 / video.videoWidth;
+      const scale = WORK_SIZE / video.videoWidth;
       const w = Math.round(video.videoWidth * scale);
       const h = Math.round(video.videoHeight * scale);
       work.width = w;
       work.height = h;
       overlay.width = video.videoWidth;
       overlay.height = video.videoHeight;
-      const wctx = work.getContext("2d")!;
+      const wctx = work.getContext("2d", { willReadFrequently: true })!;
       wctx.drawImage(video, 0, 0, w, h);
 
-      let quad: Point[] | null = null;
+      let box: Box | null = null;
       try {
-        const src = cv.imread(work);
-        const gray = new cv.Mat();
-        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-        const blurred = new cv.Mat();
-        cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
-        const edges = new cv.Mat();
-        cv.Canny(blurred, edges, 50, 150);
-        const kernel = cv.Mat.ones(3, 3, cv.CV_8U);
-        cv.dilate(edges, edges, kernel, new cv.Point(-1, -1), 1, cv.BORDER_CONSTANT, cv.morphologyDefaultBorderValue());
-        const contours = new cv.MatVector();
-        const hierarchy = new cv.Mat();
-        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
-
-        const frameArea = w * h;
-        let bestArea = 0;
-        for (let i = 0; i < contours.size(); i++) {
-          const cnt = contours.get(i);
-          const area = cv.contourArea(cnt);
-          if (area > frameArea * MIN_AREA_FRACTION && area > bestArea) {
-            const peri = cv.arcLength(cnt, true);
-            const approx = new cv.Mat();
-            cv.approxPolyDP(cnt, approx, 0.02 * peri, true);
-            if (approx.rows === 4) {
-              bestArea = area;
-              const pts: Point[] = [];
-              for (let j = 0; j < 4; j++) {
-                pts.push({ x: approx.data32S[j * 2] / scale, y: approx.data32S[j * 2 + 1] / scale });
-              }
-              quad = pts;
-            }
-            approx.delete();
-          }
-          cnt.delete();
+        const imageData = wctx.getImageData(0, 0, w, h);
+        const small = detectDocumentBox(imageData, w, h);
+        if (small) {
+          box = {
+            left: small.left / scale,
+            top: small.top / scale,
+            right: small.right / scale,
+            bottom: small.bottom / scale,
+          };
         }
-        src.delete();
-        gray.delete();
-        blurred.delete();
-        edges.delete();
-        kernel.delete();
-        contours.delete();
-        hierarchy.delete();
       } catch {
-        quad = null;
+        box = null;
       }
 
       const octx = overlay.getContext("2d")!;
       octx.clearRect(0, 0, overlay.width, overlay.height);
-      setHasQuad(!!quad);
+      setHasBox(!!box);
 
-      if (quad) {
-        const ordered = orderCorners(quad);
-        lastQuadRef.current = ordered;
+      if (box) {
+        lastBoxRef.current = box;
         octx.strokeStyle = "#10d99a";
         octx.lineWidth = 4;
-        octx.beginPath();
-        octx.moveTo(ordered[0].x, ordered[0].y);
-        ordered.slice(1).forEach((p) => octx.lineTo(p.x, p.y));
-        octx.closePath();
-        octx.stroke();
-        ordered.forEach((p) => {
-          octx.beginPath();
-          octx.arc(p.x, p.y, 6, 0, Math.PI * 2);
-          octx.fillStyle = "#10d99a";
-          octx.fill();
-        });
+        octx.strokeRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
 
         const hist = historyRef.current;
-        hist.push(ordered);
+        hist.push(box);
         if (hist.length > STABILITY_FRAMES) hist.shift();
         if (hist.length === STABILITY_FRAMES) {
-          const drift = Math.max(...hist.slice(1).map((q, i) => cornerDistance(q, hist[i])));
+          const drift = Math.max(...hist.slice(1).map((b, i) => boxDistance(b, hist[i])));
           if (drift < STABILITY_TOLERANCE) {
-            captureNow(ordered);
+            captureNow(box);
             return;
           }
         }
       } else {
         historyRef.current = [];
-        lastQuadRef.current = null;
+        lastBoxRef.current = null;
       }
 
       rafRef.current = requestAnimationFrame(loop);
@@ -240,9 +237,8 @@ export default function LiveScanner({
         video.srcObject = stream;
         await video.play();
         if (cancelled) return;
-        // The camera itself is usable right away - the shutter button works from here,
-        // independent of whether the detection engine below loads successfully.
         setStatus("live");
+        loop();
       } catch (err) {
         if (!cancelled) {
           setStatus("camera_error");
@@ -251,29 +247,6 @@ export default function LiveScanner({
               ? "Camera access was blocked. Allow camera permission for this site and try again."
               : "Could not access the camera on this device."
           );
-        }
-        return;
-      }
-
-      // Detection engine loads in the background; auto-capture only activates once ready.
-      try {
-        const cv = await loadOpenCV((p) => {
-          if (cancelled) return;
-          if (p.phase === "downloading") {
-            setEngineStatus(p.pct != null ? `Loading auto-detect… ${p.pct}%` : "Loading auto-detect…");
-          } else {
-            setEngineStatus("Starting auto-detect…");
-          }
-        });
-        if (cancelled) return;
-        cvRef.current = cv;
-        setEngineReady(true);
-        loop();
-      } catch (err) {
-        if (!cancelled) {
-          setEngineFailed(true);
-          setErrorMsg(err instanceof Error ? err.message : "Auto-detection engine failed to load");
-          // Camera is still live and the shutter button still works - this is a soft failure.
         }
       }
     }
@@ -293,7 +266,7 @@ export default function LiveScanner({
       <div className="flex items-center justify-between px-4 py-3 text-white">
         <span className="text-sm font-medium">
           {status === "starting_camera" && "Starting camera…"}
-          {status === "live" && (hasQuad ? "Hold steady…" : engineReady ? "Point at a document" : "Tap the button to capture")}
+          {status === "live" && (hasBox ? "Hold steady…" : "Point at a document")}
           {status === "detecting" && "Capturing…"}
           {cameraFailed && "Camera unavailable"}
         </span>
@@ -326,9 +299,6 @@ export default function LiveScanner({
                 onClick={() => {
                   setStatus("starting_camera");
                   setErrorMsg("");
-                  setEngineReady(false);
-                  setEngineFailed(false);
-                  setEngineStatus("Loading auto-detect…");
                   setRetryKey((k) => k + 1);
                 }}
                 className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold hover:bg-emerald-700"
@@ -341,30 +311,17 @@ export default function LiveScanner({
             </div>
           </div>
         )}
-        {status === "live" && !engineReady && !engineFailed && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2">
-            <Spinner className="w-3.5 h-3.5" light />
-            {engineStatus}
-          </div>
-        )}
-        {status === "live" && engineFailed && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-500/90 text-white text-xs px-3 py-1.5 rounded-full max-w-[90%] text-center">
-            {errorMsg || "Auto-detect unavailable - use the capture button below"}
-          </div>
-        )}
       </div>
 
       <div className="p-5 flex flex-col items-center gap-3">
         {status === "live" && (
           <button
-            onClick={() => captureNow(lastQuadRef.current || undefined)}
+            onClick={() => captureNow(lastBoxRef.current || undefined)}
             className="w-16 h-16 rounded-full bg-zinc-900 ring-4 ring-white/30 active:scale-95 transition"
             aria-label="Capture"
           />
         )}
-        <p className="text-white/60 text-xs text-center">
-          {engineReady ? "Captures automatically, or tap the button anytime." : "Tap the button when the document is in frame."}
-        </p>
+        <p className="text-white/60 text-xs text-center">Captures automatically, or tap the button anytime.</p>
       </div>
     </div>
   );
