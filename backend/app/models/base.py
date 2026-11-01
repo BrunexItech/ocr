@@ -114,3 +114,17 @@ class Integration(Base):
     kind: Mapped[str] = mapped_column(String(32))  # webhook | csv_export | db (future)
     config: Mapped[dict] = mapped_column(JSON, default=dict)  # e.g. {"url": "..."} for webhook
     active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class ServiceAccount(Base):
+    """A non-human caller (another system, e.g. a partner registry) authenticating
+    with an API key instead of a user login. Only the key's hash is ever stored."""
+    __tablename__ = "service_accounts"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
+    name: Mapped[str] = mapped_column(String(255))
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    key_prefix: Mapped[str] = mapped_column(String(12))  # shown in UI/logs so a key is identifiable without revealing it
+    role: Mapped[str] = mapped_column(Enum(Role), default=Role.intake)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

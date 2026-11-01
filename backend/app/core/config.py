@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_minutes: int = 60 * 8
     review_confidence_threshold: float = 0.85
+    enable_handwriting: bool = False  # opt-in: pulls in TrOCR (torch+transformers), heavy on CPU - off by default so the core scanning flow stays fast and light
 
 
 settings = Settings()

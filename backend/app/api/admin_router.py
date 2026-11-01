@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from app.auth.api_key import generate_api_key
 from app.auth.deps import get_current_user, require_roles
 from app.auth.security import hash_password
 from app.core.audit import record
 from app.db.session import get_db
-from app.models.base import DocumentType, Role, User
+from app.models.base import DocumentType, Role, ServiceAccount, User
 
 router = APIRouter()
 
@@ -107,3 +108,51 @@ def update_user(user_id: str, role: Role | None = None, active: bool | None = No
     record(db, user=user.name, role=user.role, action="admin.user_update", detail=f"{target.email}: {'; '.join(changes)}")
     db.commit()
     return target
+
+
+class ServiceAccountIn(BaseModel):
+    name: str
+    role: Role = Role.intake
+
+
+class ServiceAccountOut(BaseModel):
+    id: str
+    name: str
+    key_prefix: str
+    role: str
+    active: bool
+
+    class Config:
+        from_attributes = True
+
+
+@router.get("/service-accounts", response_model=list[ServiceAccountOut])
+def list_service_accounts(db: Session = Depends(get_db), user: User = Depends(require_roles(Role.admin))):
+    return db.query(ServiceAccount).all()
+
+
+@router.post("/service-accounts")
+def create_service_account(body: ServiceAccountIn, db: Session = Depends(get_db),
+                            user: User = Depends(require_roles(Role.admin))):
+    """Issues a new API key for a machine client (e.g. a partner system). The raw key
+    is returned exactly once here and is unrecoverable afterward - only its hash is
+    stored, same principle as a password."""
+    raw_key, key_hash, key_prefix = generate_api_key()
+    account = ServiceAccount(name=body.name, key_hash=key_hash, key_prefix=key_prefix, role=body.role)
+    db.add(account)
+    db.flush()
+    record(db, user=user.name, role=user.role, action="admin.service_account_create", detail=f"Issued key for {body.name}")
+    db.commit()
+    return {"id": account.id, "name": account.name, "role": account.role, "api_key": raw_key}
+
+
+@router.delete("/service-accounts/{account_id}")
+def revoke_service_account(account_id: str, db: Session = Depends(get_db),
+                            user: User = Depends(require_roles(Role.admin))):
+    account = db.get(ServiceAccount, account_id)
+    if not account:
+        raise HTTPException(404, "Service account not found")
+    account.active = False
+    record(db, user=user.name, role=user.role, action="admin.service_account_revoke", detail=account.name)
+    db.commit()
+    return {"ok": True}
