@@ -25,3 +25,15 @@ def get_db():
         yield db
     finally:
         db.close()
+
+
+def ensure_columns(table: str, columns: dict[str, str]) -> None:
+    """Add any missing columns to an existing table (there's no Alembic here, just
+    create_all - which only creates tables, never alters existing ones). Safe to call
+    every startup: skips columns that already exist."""
+    with engine.connect() as conn:
+        existing = {row[1] for row in conn.exec_driver_sql(f"PRAGMA table_info({table})")}
+        for name, ddl_type in columns.items():
+            if name not in existing:
+                conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {ddl_type}")
+        conn.commit()

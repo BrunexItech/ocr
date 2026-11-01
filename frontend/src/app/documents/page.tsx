@@ -6,7 +6,7 @@ import RequireAuth from "@/components/RequireAuth";
 import DocThumb from "@/components/DocThumb";
 import { api, DocumentOut } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Camera, Clock, CheckCircle2, FileStack, Plus, FileSearch } from "lucide-react";
+import { Camera, Clock, CheckCircle2, FileStack, Plus, FileSearch, Search, X } from "lucide-react";
 
 const STATUS_STYLE: Record<string, string> = {
   queued: "bg-zinc-800 text-zinc-400",
@@ -51,14 +51,25 @@ function DocumentsList() {
   const { user } = useAuth();
   const [docs, setDocs] = useState<DocumentOut[]>([]);
   const [filter, setFilter] = useState("");
+  const [search, setSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => {
+    let cancelled = false;
     api
-      .listDocuments(filter || undefined)
-      .then(setDocs)
-      .finally(() => setLoading(false));
-  }, [filter]);
+      .listDocuments(filter || undefined, debouncedSearch || undefined)
+      .then((d) => !cancelled && setDocs(d))
+      .finally(() => !cancelled && setLoading(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [filter, debouncedSearch]);
 
   const tabs = [
     ["", "All"],
@@ -92,6 +103,27 @@ function DocumentsList() {
         </div>
       )}
 
+      <div className="relative mb-5">
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by name, tracking number, or document contents…"
+          className="w-full rounded-full border border-zinc-800 bg-zinc-900 text-zinc-100 placeholder-zinc-500 pl-10 pr-9 py-2.5 text-sm"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => setSearch("")}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-200"
+            aria-label="Clear search"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
       <div className="flex gap-1 mb-5 border-b border-zinc-800 overflow-x-auto">
         {tabs.map(([value, label]) => (
           <button
@@ -114,8 +146,14 @@ function DocumentsList() {
       ) : docs.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-20 text-zinc-500">
           <FileStack className="w-12 h-12 mb-3" strokeWidth={1.5} />
-          <p className="text-sm">No scans here yet.</p>
-          <Link href="/intake" className="text-emerald-400 text-sm font-medium mt-2">Scan your first document →</Link>
+          {debouncedSearch ? (
+            <p className="text-sm">No documents match &ldquo;{debouncedSearch}&rdquo;.</p>
+          ) : (
+            <>
+              <p className="text-sm">No scans here yet.</p>
+              <Link href="/intake" className="text-emerald-400 text-sm font-medium mt-2">Scan your first document →</Link>
+            </>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
@@ -137,8 +175,11 @@ function DocumentsList() {
                 )}
               </div>
               <div className="p-2.5">
-                <p className="text-xs font-mono text-zinc-300 truncate">{d.tracking_no}</p>
-                <p className="text-xs text-zinc-500 truncate mt-0.5">{d.detected_kind}</p>
+                <p className="text-xs font-semibold text-zinc-200 truncate">{d.title || d.tracking_no}</p>
+                <p className="text-xs text-zinc-500 truncate mt-0.5">
+                  {d.detected_kind}
+                  {d.title && <span className="font-mono"> · {d.tracking_no}</span>}
+                </p>
               </div>
             </Link>
           ))}

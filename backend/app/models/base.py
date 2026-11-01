@@ -56,6 +56,7 @@ class Document(Base):
     __tablename__ = "documents"
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=gen_id)
     tracking_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    title: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     type_id: Mapped[str | None] = mapped_column(String(32), ForeignKey("document_types.id"), nullable=True)
     status: Mapped[str] = mapped_column(DocStatus, default="queued")
     sensitivity: Mapped[str] = mapped_column(String(32), default="internal")

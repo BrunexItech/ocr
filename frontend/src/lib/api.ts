@@ -96,15 +96,27 @@ export const api = {
     const qs = new URLSearchParams(body as Record<string, string>).toString();
     return request<UserOut>(`/api/admin/users/${id}?${qs}`, { method: "PATCH" });
   },
-  async intake(file: File, typeId?: string) {
+  async intake(file: File, typeId?: string, title?: string) {
     const form = new FormData();
     form.append("file", file);
-    const qs = typeId ? `?type_id=${typeId}` : "";
-    return request<DocumentOut>(`/api/documents/intake${qs}`, { method: "POST", body: form });
+    const params = new URLSearchParams();
+    if (typeId) params.set("type_id", typeId);
+    if (title) params.set("title", title);
+    const qs = params.toString();
+    return request<DocumentOut>(`/api/documents/intake${qs ? `?${qs}` : ""}`, { method: "POST", body: form });
   },
-  async listDocuments(status?: string) {
-    const qs = status ? `?status=${status}` : "";
-    return request<DocumentOut[]>(`/api/documents/${qs}`);
+  async listDocuments(status?: string, q?: string) {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (q) params.set("q", q);
+    const qs = params.toString();
+    return request<DocumentOut[]>(`/api/documents/${qs ? `?${qs}` : ""}`);
+  },
+  async renameDocument(id: string, title: string) {
+    return request<DocumentOut>(`/api/documents/${id}/rename`, {
+      method: "PATCH",
+      body: JSON.stringify({ title }),
+    });
   },
   async getDocument(id: string, reveal = false) {
     return request<DocumentOut>(`/api/documents/${id}${reveal ? "?reveal=true" : ""}`);
@@ -175,6 +187,7 @@ export type UserOut = { id: string; email: string; name: string; role: string; a
 export type DocumentOut = {
   id: string;
   tracking_no: string;
+  title: string | null;
   status: string;
   type_id: string | null;
   sensitivity: string;

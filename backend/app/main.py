@@ -7,10 +7,11 @@ from app.api.auth_router import router as auth_router
 from app.api.documents_router import router as documents_router
 from app.api.integrations_router import router as integrations_router
 from app.core.config import settings
-from app.db.session import Base, engine
+from app.db.session import Base, engine, ensure_columns
 from app.models import base as _models  # noqa: F401  (ensures models are registered before create_all)
 
 Base.metadata.create_all(bind=engine)
+ensure_columns("documents", {"title": "VARCHAR(255)"})
 
 app = FastAPI(title=settings.app_name)
 

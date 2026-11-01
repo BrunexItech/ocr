@@ -37,6 +37,7 @@ def _tracking_no() -> str:
 class DocOut(BaseModel):
     id: str
     tracking_no: str
+    title: str | None
     status: str
     type_id: str | None
     sensitivity: str
@@ -97,6 +98,7 @@ async def detect_frame(file: UploadFile = File(...), user: User = Depends(get_cu
 async def intake(
     file: UploadFile = File(...),
     type_id: str | None = None,
+    title: str | None = None,
     db: Session = Depends(get_db),
     user: User = Depends(require_roles(Role.admin, Role.intake)),
 ):
@@ -113,7 +115,8 @@ async def intake(
     doc_type = db.get(DocumentType, type_id) if type_id else None
     if type_id and not doc_type:
         raise HTTPException(400, f"Unknown document type: {type_id}")
-    doc = Document(tracking_no=tracking_no, type_id=type_id, file_name=file.filename, file_path=str(dest),
+    doc = Document(tracking_no=tracking_no, title=(title or "").strip() or None, type_id=type_id,
+                    file_name=file.filename, file_path=str(dest),
                     sensitivity=doc_type.default_sensitivity if doc_type else "internal",
                     created_by=user.id, status="processing")
     db.add(doc)
@@ -170,11 +173,41 @@ async def intake(
 
 
 @router.get("/", response_model=list[DocOut])
-def list_documents(status: str | None = None, db: Session = Depends(get_db), user: User = Depends(get_current_user)):
-    q = db.query(Document)
+def list_documents(status: str | None = None, q: str | None = None, db: Session = Depends(get_db),
+                    user: User = Depends(get_current_user)):
+    query = db.query(Document)
     if status:
-        q = q.filter(Document.status == status)
-    return [_doc_to_out(d, user, db) for d in q.order_by(Document.created_at.desc()).all()]
+        query = query.filter(Document.status == status)
+    docs = query.order_by(Document.created_at.desc()).all()
+    if q:
+        needle = q.strip().lower()
+        docs = [d for d in docs if needle in _searchable_text(d)]
+    return [_doc_to_out(d, user, db) for d in docs]
+
+
+def _searchable_text(d: Document) -> str:
+    """Everything a search box should match against: the name someone gave it, its
+    tracking number, the raw OCR text, and every extracted field value."""
+    parts = [d.title or "", d.tracking_no, d.file_name, d.ocr_text or ""]
+    parts.extend(str(v) for v in d.fields.values())
+    return " ".join(parts).lower()
+
+
+class RenameBody(BaseModel):
+    title: str
+
+
+@router.patch("/{doc_id}/rename", response_model=DocOut)
+def rename_document(doc_id: str, body: RenameBody, db: Session = Depends(get_db),
+                     user: User = Depends(get_current_user)):
+    doc = db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(404, "Document not found")
+    doc.title = body.title.strip() or None
+    record(db, user=user.name, role=user.role, action="document.rename", document_id=doc.id,
+           detail=f"Renamed to {doc.title!r}")
+    db.commit()
+    return _doc_to_out(doc, user, db)
 
 
 @router.get("/{doc_id}", response_model=DocOut)

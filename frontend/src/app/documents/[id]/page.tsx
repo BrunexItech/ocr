@@ -6,6 +6,7 @@ import RequireAuth from "@/components/RequireAuth";
 import DocThumb from "@/components/DocThumb";
 import { useAuth } from "@/lib/auth-context";
 import { api, ApiError, DocumentOut, IntegrationOut } from "@/lib/api";
+import { Check, Pencil, X as XIcon } from "lucide-react";
 
 function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -20,6 +21,8 @@ function DocumentDetail() {
   const [integrations, setIntegrations] = useState<IntegrationOut[]>([]);
   const [pushFields, setPushFields] = useState<string[]>([]);
   const [pushIntegration, setPushIntegration] = useState("");
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
 
   const load = useCallback(() => {
     api.getDocument(id, reveal).then((d) => {
@@ -43,6 +46,14 @@ function DocumentDetail() {
   const canEdit = !doc.locked && ["admin", "reviewer", "approver"].includes(user?.role || "");
   const dirty = JSON.stringify(draft) !== JSON.stringify(doc.fields);
 
+  async function saveTitle() {
+    await withBusy(async () => {
+      const updated = await api.renameDocument(doc!.id, titleDraft.trim());
+      setDoc(updated);
+      setEditingTitle(false);
+    });
+  }
+
   async function withBusy(fn: () => Promise<void>) {
     setBusy(true);
     setError("");
@@ -63,8 +74,40 @@ function DocumentDetail() {
       </button>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <h1 className="text-xl font-semibold font-mono break-all">{doc.tracking_no}</h1>
+          {editingTitle ? (
+            <div className="flex items-center gap-2">
+              <input
+                autoFocus
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") saveTitle();
+                  if (e.key === "Escape") setEditingTitle(false);
+                }}
+                placeholder="Name this document"
+                className="text-xl font-semibold bg-zinc-900 border border-zinc-700 rounded-md px-2 py-1 text-zinc-100 placeholder-zinc-500 w-full"
+              />
+              <button onClick={saveTitle} disabled={busy} className="p-1.5 text-emerald-400 hover:text-emerald-300" aria-label="Save name">
+                <Check className="w-5 h-5" />
+              </button>
+              <button onClick={() => setEditingTitle(false)} className="p-1.5 text-zinc-500 hover:text-zinc-300" aria-label="Cancel">
+                <XIcon className="w-5 h-5" />
+              </button>
+            </div>
+          ) : (
+            <h1
+              className="text-xl font-semibold break-all group inline-flex items-center gap-2 cursor-pointer"
+              onClick={() => {
+                setTitleDraft(doc.title || "");
+                setEditingTitle(true);
+              }}
+            >
+              {doc.title || <span className="font-mono">{doc.tracking_no}</span>}
+              <Pencil className="w-4 h-4 text-zinc-500 opacity-0 group-hover:opacity-100 transition shrink-0" />
+            </h1>
+          )}
           <p className="text-sm text-zinc-500 mt-1">
+            {doc.title && <span className="font-mono">{doc.tracking_no}</span>}{doc.title && " · "}
             {doc.detected_kind} · {doc.file_name} · {doc.status.replace("_", " ")} · confidence{" "}
             {doc.ocr_confidence != null ? `${(doc.ocr_confidence * 100).toFixed(0)}%` : "—"}
             {doc.locked && <span className="ml-2 text-zinc-500">· locked</span>}

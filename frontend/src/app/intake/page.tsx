@@ -28,6 +28,7 @@ function IntakeForm() {
   const [dragOver, setDragOver] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>("document");
+  const [title, setTitle] = useState("");
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -39,6 +40,7 @@ function IntakeForm() {
     setResult(null);
     setError("");
     setTypeId("");
+    setTitle("");
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f && f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   }
@@ -49,7 +51,7 @@ function IntakeForm() {
     setError("");
     setResult(null);
     try {
-      const doc = await api.intake(file, mode === "extract" ? typeId || undefined : undefined);
+      const doc = await api.intake(file, mode === "extract" ? typeId || undefined : undefined, title.trim() || undefined);
       setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence, detectedKind: doc.detected_kind });
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
@@ -157,6 +159,18 @@ function IntakeForm() {
 
         {file && !result && (
           <>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 card-float">
+              <label className="block text-sm font-medium text-zinc-300 mb-1.5">Name this scan (optional)</label>
+              <input
+                type="text"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. John Doe - National ID, Q3 invoice from Acme"
+                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm"
+              />
+              <p className="text-xs text-zinc-500 mt-1.5">Makes it easy to find later — search by name instead of the tracking number.</p>
+            </div>
+
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 card-float">
               <label className="block text-sm font-medium text-zinc-300 mb-1.5">Document type (for structured extraction)</label>
               <select className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" value={typeId} onChange={(e) => setTypeId(e.target.value)}>
