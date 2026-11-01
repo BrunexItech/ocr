@@ -3,12 +3,18 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
-import LiveScanner from "@/components/LiveScanner";
+import LiveScanner, { ScanMode } from "@/components/LiveScanner";
 import Spinner from "@/components/Spinner";
 import { api, ApiError, DocumentType } from "@/lib/api";
-import { Camera, FileText, ScanLine, X } from "lucide-react";
+import { CreditCard, FileText, ScanLine, Upload, X } from "lucide-react";
 
 type Mode = "extract" | "document_only";
+
+const SCAN_CARDS: { mode: ScanMode; label: string; hint: string; icon: typeof FileText }[] = [
+  { mode: "document", label: "Document", hint: "Letters, invoices, receipts, forms", icon: FileText },
+  { mode: "id_card", label: "ID card", hint: "National ID, driver's license", icon: CreditCard },
+  { mode: "passport", label: "Passport", hint: "Photo page with MRZ", icon: ScanLine },
+];
 
 function IntakeForm() {
   const router = useRouter();
@@ -21,6 +27,7 @@ function IntakeForm() {
   const [result, setResult] = useState<{ tracking_no: string; status: string; confidence: number | null; detectedKind: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
+  const [scanMode, setScanMode] = useState<ScanMode>("document");
   const fileInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -61,6 +68,7 @@ function IntakeForm() {
 
       {scannerOpen && (
         <LiveScanner
+          mode={scanMode}
           onCapture={(f) => {
             setScannerOpen(false);
             pickFile(f);
@@ -71,51 +79,60 @@ function IntakeForm() {
 
       <div className="space-y-4">
         {!preview ? (
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              pickFile(e.dataTransfer.files?.[0] || null);
-            }}
-            className={`rounded-2xl border-2 border-dashed p-10 text-center transition ${
-              dragOver ? "border-emerald-500 bg-emerald-500/10" : "border-zinc-700 bg-zinc-900"
-            }`}
-          >
-            <div className="w-14 h-14 rounded-2xl brand-grad text-white flex items-center justify-center mx-auto mb-4">
-              <ScanLine className="w-7 h-7" />
+          <>
+            <div className="grid grid-cols-3 gap-2">
+              {SCAN_CARDS.map(({ mode, label, hint, icon: Icon }) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setScanMode(mode);
+                    setScannerOpen(true);
+                  }}
+                  className="flex flex-col items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-center hover:border-emerald-600/50 hover:bg-zinc-800/60 transition card-float"
+                >
+                  <div className="w-11 h-11 rounded-xl brand-grad text-white flex items-center justify-center">
+                    <Icon className="w-5 h-5" />
+                  </div>
+                  <span className="text-sm font-semibold text-zinc-200">{label}</span>
+                  <span className="text-[11px] text-zinc-500 leading-tight">{hint}</span>
+                </button>
+              ))}
             </div>
-            <p className="font-medium text-zinc-300 mb-1">Drop a file, or choose below</p>
-            <p className="text-xs text-zinc-500 mb-5">PDF, JPG, PNG, WEBP — up to 25MB</p>
-            <div className="flex items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => setScannerOpen(true)}
-                className="inline-flex items-center gap-2 rounded-full bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition"
-              >
-                <Camera className="w-4 h-4" />
-                Live scan
-              </button>
+
+            <div
+              onDragOver={(e) => {
+                e.preventDefault();
+                setDragOver(true);
+              }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                pickFile(e.dataTransfer.files?.[0] || null);
+              }}
+              className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${
+                dragOver ? "border-emerald-500 bg-emerald-500/10" : "border-zinc-700 bg-zinc-900"
+              }`}
+            >
+              <p className="text-xs text-zinc-500 mb-3">Or drop a file — PDF, JPG, PNG, WEBP, up to 25MB</p>
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
                 className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 transition"
               >
+                <Upload className="w-4 h-4" />
                 Choose file
               </button>
+              <input
+                ref={fileInput}
+                type="file"
+                accept=".pdf,.png,.jpg,.jpeg,.webp"
+                className="hidden"
+                onChange={(e) => pickFile(e.target.files?.[0] || null)}
+              />
             </div>
-            <input
-              ref={fileInput}
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.webp"
-              className="hidden"
-              onChange={(e) => pickFile(e.target.files?.[0] || null)}
-            />
-          </div>
+          </>
         ) : (
           <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-black relative">
             {/* eslint-disable-next-line @next/next/no-img-element */}

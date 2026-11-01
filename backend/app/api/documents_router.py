@@ -2,6 +2,7 @@ import uuid
 from pathlib import Path
 
 import cv2
+import numpy as np
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -18,7 +19,7 @@ from app.pipeline.engine import default_engine
 from app.pipeline.extract_fields import extract_invoice_fields
 from app.pipeline.loader import load_pages
 from app.pipeline.mrz import find_and_parse_mrz, mrz_to_fields
-from app.pipeline.preprocess import apply_enhance_mode, auto_crop_and_straighten, preprocess_for_ocr
+from app.pipeline.preprocess import apply_enhance_mode, auto_crop_and_straighten, find_document_contour, preprocess_for_ocr
 
 router = APIRouter()
 
@@ -68,6 +69,28 @@ def _doc_to_out(d: Document, user: User, db: Session, reveal: bool = False) -> d
     out["fields"] = mask_fields(d.fields, dt, Role(user.role), reveal)
     out["detected_kind"] = _detect_kind(d.fields)
     return out
+
+
+@router.post("/detect-frame")
+async def detect_frame(file: UploadFile = File(...), user: User = Depends(get_current_user)):
+    """Lightweight live-preview check: is there a document-shaped quad in this frame?
+    Reuses the same proven contour detector that the real intake pipeline uses for
+    auto-crop, so the live scanner's "found it" feedback matches what actually gets
+    cropped on capture."""
+    data = await file.read()
+    try:
+        arr = np.frombuffer(data, dtype=np.uint8)
+        image = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except Exception:
+        image = None
+    if image is None:
+        return {"found": False}
+    contour = find_document_contour(image)
+    if contour is None:
+        return {"found": False}
+    h, w = image.shape[:2]
+    points = [{"x": float(p[0]), "y": float(p[1])} for p in contour]
+    return {"found": True, "points": points, "width": w, "height": h}
 
 
 @router.post("/intake", response_model=DocOut)
