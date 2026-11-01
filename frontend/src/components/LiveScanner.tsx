@@ -45,6 +45,8 @@ export default function LiveScanner({
   const [errorMsg, setErrorMsg] = useState("");
   const [hasQuad, setHasQuad] = useState(false);
   const [engineReady, setEngineReady] = useState(false);
+  const [engineStatus, setEngineStatus] = useState("Loading auto-detect…");
+  const [engineFailed, setEngineFailed] = useState(false);
   const [retryKey, setRetryKey] = useState(0);
 
   const stop = useCallback(() => {
@@ -255,13 +257,21 @@ export default function LiveScanner({
 
       // Detection engine loads in the background; auto-capture only activates once ready.
       try {
-        const cv = await loadOpenCV();
+        const cv = await loadOpenCV((p) => {
+          if (cancelled) return;
+          if (p.phase === "downloading") {
+            setEngineStatus(p.pct != null ? `Loading auto-detect… ${p.pct}%` : "Loading auto-detect…");
+          } else {
+            setEngineStatus("Starting auto-detect…");
+          }
+        });
         if (cancelled) return;
         cvRef.current = cv;
         setEngineReady(true);
         loop();
       } catch (err) {
         if (!cancelled) {
+          setEngineFailed(true);
           setErrorMsg(err instanceof Error ? err.message : "Auto-detection engine failed to load");
           // Camera is still live and the shutter button still works - this is a soft failure.
         }
@@ -317,6 +327,8 @@ export default function LiveScanner({
                   setStatus("starting_camera");
                   setErrorMsg("");
                   setEngineReady(false);
+                  setEngineFailed(false);
+                  setEngineStatus("Loading auto-detect…");
                   setRetryKey((k) => k + 1);
                 }}
                 className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold hover:bg-emerald-700"
@@ -329,9 +341,15 @@ export default function LiveScanner({
             </div>
           </div>
         )}
-        {status === "live" && !engineReady && errorMsg && (
-          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-500/100/90 text-white text-xs px-3 py-1.5 rounded-full">
-            Auto-detect unavailable - use the capture button below
+        {status === "live" && !engineReady && !engineFailed && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-black/70 text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-2">
+            <Spinner className="w-3.5 h-3.5" light />
+            {engineStatus}
+          </div>
+        )}
+        {status === "live" && engineFailed && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 bg-amber-500/90 text-white text-xs px-3 py-1.5 rounded-full max-w-[90%] text-center">
+            {errorMsg || "Auto-detect unavailable - use the capture button below"}
           </div>
         )}
       </div>

@@ -67,42 +67,116 @@ type OpenCVMatVector = {
 };
 
 let loadPromise: Promise<OpenCVNamespace> | null = null;
-const LOAD_TIMEOUT_MS = 20000;
+let cachedScriptText: string | null = null;
 
-export function loadOpenCV(): Promise<OpenCVNamespace> {
+const STALL_TIMEOUT_MS = 15000; // abort if no new data arrives for this long
+const WASM_INIT_GRACE_MS = 45000; // WASM compile/instantiate can be slow on phones
+
+export type LoadProgress = { phase: "downloading" | "initializing"; pct: number | null };
+
+export function loadOpenCV(onProgress?: (p: LoadProgress) => void): Promise<OpenCVNamespace> {
   if (loadPromise) return loadPromise;
-  loadPromise = new Promise((resolve, reject) => {
-    if (typeof window !== "undefined" && window.cv && window.cv.Mat) {
-      resolve(window.cv);
-      return;
-    }
+  loadPromise = run(onProgress).catch((err) => {
+    loadPromise = null; // allow retrying on the next call rather than caching a failure forever
+    throw err;
+  });
+  return loadPromise;
+}
 
+async function run(onProgress?: (p: LoadProgress) => void): Promise<OpenCVNamespace> {
+  if (typeof window !== "undefined" && window.cv && window.cv.Mat) {
+    return window.cv;
+  }
+
+  const scriptText = cachedScriptText ?? (await downloadWithStallDetection(onProgress));
+  cachedScriptText = scriptText;
+
+  onProgress?.({ phase: "initializing", pct: null });
+
+  return new Promise<OpenCVNamespace>((resolve, reject) => {
     const timer = setTimeout(() => {
-      loadPromise = null; // allow a retry on the next call rather than hanging forever
-      reject(new Error("The scanner engine took too long to load - check your connection and try again"));
-    }, LOAD_TIMEOUT_MS);
-
-    const settle = (fn: () => void) => {
-      clearTimeout(timer);
-      fn();
-    };
+      reject(new Error("The scanner engine loaded but took too long to start - your device may be too slow for this, use the capture button instead"));
+    }, WASM_INIT_GRACE_MS);
 
     // OpenCV.js's WASM init runs as soon as the script executes, and only calls
     // onRuntimeInitialized if it's ALREADY set on `cv` (or `Module`) at that moment -
-    // registering it after script.onload fires is too late and the signal is missed.
-    // So we must pre-create the object and attach the callback BEFORE injecting the script.
+    // registering it after script.onload fires is too late and the signal can be missed.
+    // So this must be in place BEFORE the script is injected/executed.
     window.cv = ({
-      onRuntimeInitialized: () => settle(() => resolve(window.cv)),
+      onRuntimeInitialized: () => {
+        clearTimeout(timer);
+        resolve(window.cv);
+      },
     } as unknown) as OpenCVNamespace;
 
-    const script = document.createElement("script");
-    // Self-hosted (public/opencv.js) rather than an external CDN - removes a real
-    // point of failure (third-party reachability, CORS, ad/firewall blocking) for
-    // something this feature depends on every time it's used.
-    script.src = "/opencv.js";
-    script.async = true;
-    script.onerror = () => settle(() => reject(new Error("Could not load the scanner engine - check your connection")));
-    document.head.appendChild(script);
+    try {
+      const script = document.createElement("script");
+      script.text = scriptText;
+      document.head.appendChild(script);
+    } catch (err) {
+      clearTimeout(timer);
+      reject(err instanceof Error ? err : new Error("Could not start the scanner engine"));
+    }
   });
-  return loadPromise;
+}
+
+async function downloadWithStallDetection(onProgress?: (p: LoadProgress) => void): Promise<string> {
+  const controller = new AbortController();
+
+  const res = await fetch("/opencv.js", { signal: controller.signal }).catch(() => {
+    throw new Error("Could not reach the server to load the scanner engine - check your connection");
+  });
+  if (!res.ok || !res.body) {
+    throw new Error(`Could not load the scanner engine (server returned ${res.status})`);
+  }
+
+  const total = Number(res.headers.get("content-length")) || null;
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let received = 0;
+
+  // A single reject function, captured once, that both the initial arm() and every
+  // subsequent re-arm (on each chunk received) call into - this is what makes the
+  // timeout "stall-based" (resets on progress) rather than a flat deadline.
+  let stallTimer: ReturnType<typeof setTimeout> = setTimeout(() => {}, 0);
+  let rejectStall!: (err: Error) => void;
+  const stalled = new Promise<never>((_, reject) => {
+    rejectStall = reject;
+  });
+  const arm = () => {
+    clearTimeout(stallTimer);
+    stallTimer = setTimeout(() => {
+      controller.abort();
+      rejectStall(new Error("The scanner engine download stalled - check your connection and try again"));
+    }, STALL_TIMEOUT_MS);
+  };
+
+  const readLoop = (async () => {
+    arm();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        received += value.length;
+        arm();
+        onProgress?.({ phase: "downloading", pct: total ? Math.round((received / total) * 100) : null });
+      }
+    }
+    clearTimeout(stallTimer);
+  })();
+  readLoop.catch(() => {
+    /* if this rejects (e.g. abort), `stalled` already reflects the real error via the
+       race below - this catch only exists to avoid an unhandled-rejection console warning */
+  });
+
+  await Promise.race([readLoop, stalled]);
+
+  const combined = new Uint8Array(received);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.length;
+  }
+  return new TextDecoder("utf-8").decode(combined);
 }
