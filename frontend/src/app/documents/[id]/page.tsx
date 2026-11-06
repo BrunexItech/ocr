@@ -7,6 +7,7 @@ import DocThumb from "@/components/DocThumb";
 import { useAuth } from "@/lib/auth-context";
 import { api, ApiError, DocumentOut, IntegrationOut } from "@/lib/api";
 import { Check, Pencil, X as XIcon } from "lucide-react";
+import Spinner from "@/components/Spinner";
 
 function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -41,7 +42,13 @@ function DocumentDetail() {
     }
   }, [user]);
 
-  if (!doc) return <p className="text-sm text-zinc-500">Loading…</p>;
+  if (!doc) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Spinner className="w-7 h-7" />
+      </div>
+    );
+  }
 
   const canEdit = !doc.locked && ["admin", "reviewer", "approver"].includes(user?.role || "");
   const dirty = JSON.stringify(draft) !== JSON.stringify(doc.fields);
@@ -68,8 +75,8 @@ function DocumentDetail() {
   }
 
   return (
-    <div className="max-w-3xl">
-      <button onClick={() => router.push("/documents")} className="text-sm text-zinc-500 hover:text-zinc-200 mb-3">
+    <div className="max-w-3xl mx-auto">
+      <button onClick={() => router.push("/documents")} className="text-sm text-zinc-500 hover:text-zinc-200 mb-3 py-2 -my-2">
         ← Back to documents
       </button>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
@@ -87,10 +94,10 @@ function DocumentDetail() {
                 placeholder="Name this document"
                 className="text-xl font-semibold bg-zinc-900 border border-zinc-700 rounded-md px-2 py-1 text-zinc-100 placeholder-zinc-500 w-full"
               />
-              <button onClick={saveTitle} disabled={busy} className="p-1.5 text-emerald-400 hover:text-emerald-300" aria-label="Save name">
+              <button onClick={saveTitle} disabled={busy} className="p-2.5 text-emerald-400 hover:text-emerald-300" aria-label="Save name">
                 <Check className="w-5 h-5" />
               </button>
-              <button onClick={() => setEditingTitle(false)} className="p-1.5 text-zinc-500 hover:text-zinc-300" aria-label="Cancel">
+              <button onClick={() => setEditingTitle(false)} className="p-2.5 text-zinc-500 hover:text-zinc-300" aria-label="Cancel">
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
@@ -114,7 +121,7 @@ function DocumentDetail() {
           </p>
         </div>
         <button
-          className="text-sm rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-1.5 hover:bg-zinc-800 self-start sm:self-auto whitespace-nowrap"
+          className="text-sm rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-4 py-2 hover:bg-zinc-800 self-start sm:self-auto whitespace-nowrap"
           onClick={() => withBusy(() => api.downloadOriginal(doc.id, doc.file_name))}
         >
           Download original
@@ -175,14 +182,14 @@ function DocumentDetail() {
                   setNotice("Corrections saved as a new version.");
                 })
               }
-              className="rounded-md bg-zinc-700 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+              className="rounded-md bg-zinc-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-40"
             >
               Save corrections
             </button>
             <button
               disabled={!dirty || busy}
               onClick={() => setDraft(doc.fields)}
-              className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-1.5 text-sm disabled:opacity-40"
+              className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-4 py-2 text-sm disabled:opacity-40"
             >
               Discard
             </button>
@@ -195,7 +202,7 @@ function DocumentDetail() {
           <button
             disabled={busy}
             onClick={() => withBusy(async () => setDoc(await api.submitDocument(doc.id)))}
-            className="rounded-md bg-emerald-600 text-white px-3 py-1.5 text-sm font-medium"
+            className="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium"
           >
             Submit for approval
           </button>
@@ -204,7 +211,7 @@ function DocumentDetail() {
           <button
             disabled={busy}
             onClick={() => withBusy(async () => setDoc(await api.approveDocument(doc.id)))}
-            className="rounded-md bg-emerald-600 text-white px-3 py-1.5 text-sm font-medium"
+            className="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium"
           >
             Approve & lock
           </button>
@@ -213,7 +220,7 @@ function DocumentDetail() {
           <button
             disabled={busy}
             onClick={() => withBusy(async () => setDoc(await api.rejectDocument(doc.id, "Rejected by approver")))}
-            className="rounded-md border border-red-300 text-red-400 px-3 py-1.5 text-sm font-medium"
+            className="rounded-md border border-red-300 text-red-400 px-4 py-2 text-sm font-medium"
           >
             Reject
           </button>
@@ -228,7 +235,7 @@ function DocumentDetail() {
                 router.push("/documents");
               });
             }}
-            className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-red-400 hover:border-red-500/40 px-3 py-1.5 text-sm font-medium"
+            className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-red-400 hover:border-red-500/40 px-4 py-2 text-sm font-medium"
           >
             Delete
           </button>
@@ -279,7 +286,7 @@ function DocumentDetail() {
                     setNotice(`Pushed ${pushFields.length} field(s) to the selected destination.`);
                   })
                 }
-                className="rounded-md bg-zinc-700 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-40"
+                className="rounded-md bg-zinc-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-40"
               >
                 Push selected fields
               </button>

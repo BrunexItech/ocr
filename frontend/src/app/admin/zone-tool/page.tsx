@@ -26,7 +26,8 @@ function ZoneTool() {
       const w = probe.naturalWidth;
       const h = probe.naturalHeight;
       setNaturalSize({ w, h });
-      setScale(Math.min(1, MAX_DISPLAY_WIDTH / w));
+      const viewportBudget = typeof window !== "undefined" ? window.innerWidth - 32 : MAX_DISPLAY_WIDTH;
+      setScale(Math.min(1, MAX_DISPLAY_WIDTH / w, viewportBudget / w));
       setImageUrl(url);
       setZones([]);
     };

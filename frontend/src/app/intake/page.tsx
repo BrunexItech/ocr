@@ -152,13 +152,13 @@ function IntakeForm() {
                     setScanMode(mode);
                     setScannerOpen(true);
                   }}
-                  className="flex flex-col items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-center hover:border-emerald-600/50 hover:bg-zinc-800/60 transition card-float"
+                  className="flex flex-col items-center gap-1.5 sm:gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-2.5 sm:p-4 text-center hover:border-emerald-600/50 hover:bg-zinc-800/60 transition card-float"
                 >
-                  <div className="w-11 h-11 rounded-xl brand-grad text-white flex items-center justify-center">
-                    <Icon className="w-5 h-5" />
+                  <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl brand-grad text-white flex items-center justify-center shrink-0">
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <span className="text-sm font-semibold text-zinc-200">{label}</span>
-                  <span className="text-[11px] text-zinc-500 leading-tight">{hint}</span>
+                  <span className="text-xs sm:text-sm font-semibold text-zinc-200">{label}</span>
+                  <span className="hidden sm:block text-[11px] text-zinc-500 leading-tight">{hint}</span>
                 </button>
               ))}
             </div>
