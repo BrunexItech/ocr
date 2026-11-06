@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import RequireAuth from "@/components/RequireAuth";
 import LiveScanner, { ScanMode } from "@/components/LiveScanner";
@@ -28,13 +28,15 @@ function IntakeForm() {
   const [dragOver, setDragOver] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>("document");
-  const [capturingSide, setCapturingSide] = useState<"front" | "back">("front");
+  const [capturingSide, setCapturingSide] = useState<"front" | "back" | "extra">("front");
   const [backFile, setBackFile] = useState<File | null>(null);
+  const [extraPages, setExtraPages] = useState<File[]>([]);
   const [title, setTitle] = useState("");
   const [cropping, setCropping] = useState(false);
   const fileInput = useRef<HTMLInputElement>(null);
 
   const needsBackSide = scanMode === "id_card";
+  const supportsMultiPage = scanMode === "document";
 
   useEffect(() => {
     api.listDocumentTypes().then(setTypes).catch(() => setTypes([]));
@@ -43,6 +45,7 @@ function IntakeForm() {
   function pickFile(f: File | null) {
     setFile(f);
     setBackFile(null);
+    setExtraPages([]);
     setCapturingSide("front");
     setResult(null);
     setError("");
@@ -51,6 +54,17 @@ function IntakeForm() {
     if (preview) URL.revokeObjectURL(preview);
     setPreview(f && f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   }
+
+  // Back-of-ID and extra-pages thumbnails: plain object URLs (not run through the
+  // crop-preview endpoint) so adding a page feels instant - the backend still
+  // auto-crops every page for real once the scan is submitted. Derived with
+  // useMemo (not state+effect) since they're pure functions of backFile/extraPages;
+  // a separate effect just revokes the previous URLs once new ones are created.
+  const backPreview = useMemo(() => (backFile ? URL.createObjectURL(backFile) : null), [backFile]);
+  useEffect(() => () => { if (backPreview) URL.revokeObjectURL(backPreview); }, [backPreview]);
+
+  const extraPreviews = useMemo(() => extraPages.map((p) => URL.createObjectURL(p)), [extraPages]);
+  useEffect(() => () => extraPreviews.forEach((u) => URL.revokeObjectURL(u)), [extraPreviews]);
 
   // Show just the document, not the background it was photographed on: once a scan is
   // captured, ask the backend to auto-crop/straighten it the same way the real intake
@@ -89,7 +103,8 @@ function IntakeForm() {
         mode === "extract" ? typeId || undefined : undefined,
         title.trim() || undefined,
         scanMode,
-        backFile || undefined
+        backFile || undefined,
+        extraPages
       );
       setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence, detectedKind: doc.detected_kind });
     } catch (err) {
@@ -114,6 +129,8 @@ function IntakeForm() {
             setScannerOpen(false);
             if (scanMode === "id_card" && capturingSide === "back") {
               setBackFile(f);
+            } else if (capturingSide === "extra") {
+              setExtraPages((prev) => [...prev, f]);
             } else {
               pickFile(f);
               if (scanMode === "id_card") setCapturingSide("back");
@@ -211,17 +228,23 @@ function IntakeForm() {
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 flex items-center justify-between gap-3">
             {backFile ? (
               <>
-                <span className="text-sm text-emerald-400 flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4" />
-                  Back side captured
-                </span>
+                <div className="flex items-center gap-3 min-w-0">
+                  {backPreview && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={backPreview} alt="Back side preview" className="w-12 h-12 rounded-lg object-cover border border-zinc-700 shrink-0" />
+                  )}
+                  <span className="text-sm text-emerald-400 flex items-center gap-2">
+                    <RotateCcw className="w-4 h-4 shrink-0" />
+                    Back side captured
+                  </span>
+                </div>
                 <button
                   type="button"
                   onClick={() => {
                     setCapturingSide("back");
                     setScannerOpen(true);
                   }}
-                  className="text-xs font-medium text-zinc-400 hover:text-zinc-200 underline"
+                  className="text-xs font-medium text-zinc-400 hover:text-zinc-200 underline shrink-0"
                 >
                   Retake
                 </button>
@@ -241,6 +264,48 @@ function IntakeForm() {
                   Scan back
                 </button>
               </>
+            )}
+          </div>
+        )}
+
+        {file && supportsMultiPage && !result && (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-sm text-zinc-300">
+                {extraPages.length > 0 ? `${extraPages.length + 1} pages scanned` : "Multi-page document?"}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  setCapturingSide("extra");
+                  setScannerOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-1.5 text-xs font-semibold hover:bg-emerald-700 transition whitespace-nowrap"
+              >
+                <Camera className="w-3.5 h-3.5" />
+                {extraPages.length > 0 ? "Add another page" : "Add a page"}
+              </button>
+            </div>
+            {extraPages.length > 0 && (
+              <div className="flex gap-2 overflow-x-auto pb-1">
+                {extraPreviews.map((url, i) => (
+                  <div key={i} className="relative shrink-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={url} alt={`Page ${i + 2}`} className="w-14 h-14 rounded-lg object-cover border border-zinc-700" />
+                    <span className="absolute -top-1.5 -left-1.5 bg-zinc-800 text-zinc-300 text-[10px] font-semibold rounded-full w-5 h-5 flex items-center justify-center border border-zinc-600">
+                      {i + 2}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setExtraPages((prev) => prev.filter((_, idx) => idx !== i))}
+                      className="absolute -top-1.5 -right-1.5 bg-zinc-900 rounded-full p-0.5 border border-zinc-700"
+                      aria-label={`Remove page ${i + 2}`}
+                    >
+                      <X className="w-3 h-3 text-zinc-300" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}

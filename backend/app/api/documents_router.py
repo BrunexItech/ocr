@@ -129,6 +129,7 @@ async def crop_preview(file: UploadFile = File(...), user: User = Depends(get_cu
 async def intake(
     file: UploadFile = File(...),
     file_back: UploadFile | None = File(None),  # ID cards carry data on both sides
+    extra_pages: list[UploadFile] = File(default=[]),  # additional pages for a multi-page document scan (Adobe Scan-style "add another page")
     type_id: str | None = None,
     title: str | None = None,
     kind: str | None = None,  # optional hint from the scan-mode card: document | id_card | passport
@@ -149,6 +150,17 @@ async def intake(
         if len(back_data) > settings.max_upload_mb * 1024 * 1024:
             raise HTTPException(400, f"File exceeds {settings.max_upload_mb}MB limit")
 
+    extra_data: list[bytes] = []
+    extra_content_types: list[str] = []
+    for ep in extra_pages:
+        if ep.content_type not in ALLOWED_TYPES:
+            raise HTTPException(400, f"Unsupported file type: {ep.content_type}")
+        ep_bytes = await ep.read()
+        if len(ep_bytes) > settings.max_upload_mb * 1024 * 1024:
+            raise HTTPException(400, f"File exceeds {settings.max_upload_mb}MB limit")
+        extra_data.append(ep_bytes)
+        extra_content_types.append(ep.content_type)
+
     doc_type = db.get(DocumentType, type_id) if type_id else None
     if type_id and not doc_type:
         raise HTTPException(400, f"Unknown document type: {type_id}")
@@ -156,18 +168,27 @@ async def intake(
     try:
         front_pages = load_pages(data, file.content_type)
         back_pages = load_pages(back_data, file_back.content_type) if back_data else []
+        extra_pages_images: list = []
+        for eb, ect in zip(extra_data, extra_content_types):
+            extra_pages_images.extend(load_pages(eb, ect))
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 
     tracking_no = _tracking_no()
-    if back_pages:
-        # A two-sided scan (front + back) is stitched into one image so it stores,
-        # previews, and downloads as a single file, same as any other document.
-        straightened_pages = [auto_crop_and_straighten(p) for p in front_pages + back_pages]
-        stored_image = stack_vertical(straightened_pages)
+    all_pages = front_pages + back_pages + extra_pages_images
+    if len(all_pages) > 1:
+        # A multi-page scan (front+back of an ID, or several pages of a document
+        # added one at a time) is stitched into one image so it stores, previews,
+        # and downloads as a single file, same as any other document.
+        straightened_pages = [auto_crop_and_straighten(p) for p in all_pages]
+        page_labels = (
+            ["FRONT", "BACK"] + [f"PAGE {i + 1}" for i in range(2, len(all_pages))]
+            if back_pages else None
+        )
+        stored_image = stack_vertical(straightened_pages, page_labels)
         ok, buf = cv2.imencode(".jpg", stored_image, [cv2.IMWRITE_JPEG_QUALITY, 92])
         if not ok:
-            raise HTTPException(500, "Failed to combine front/back scan")
+            raise HTTPException(500, "Failed to combine the scanned pages")
         stem = Path(file.filename).stem or "scan"
         stored_name = f"{stem}.jpg"
         dest = STORAGE_DIR / f"{tracking_no}_{stored_name}"
@@ -178,16 +199,16 @@ async def intake(
         dest.write_bytes(data)
 
     doc = Document(tracking_no=tracking_no, title=(title or "").strip() or None, type_id=type_id,
-                    file_name=stored_name, file_path=str(dest), pre_cropped=bool(back_pages), kind_hint=kind,
+                    file_name=stored_name, file_path=str(dest), pre_cropped=len(all_pages) > 1, kind_hint=kind,
                     sensitivity=doc_type.default_sensitivity if doc_type else "internal",
                     created_by=user.id, status="processing")
     db.add(doc)
     db.flush()
     record(db, user=user.name, role=user.role, action="intake.register", document_id=doc.id,
-           detail=f"Registered {file.filename}" + (" (front + back)" if back_pages else ""))
+           detail=f"Registered {file.filename}" + (f" ({len(all_pages)} pages)" if len(all_pages) > 1 else ""))
 
     texts, confidences = [], []
-    for page_image in front_pages + back_pages:
+    for page_image in all_pages:
         processed = preprocess_for_ocr(page_image)
         result = _engine.run(processed)
         texts.append(result.full_text)
@@ -195,7 +216,7 @@ async def intake(
             confidences.append(sum(b.confidence for b in result.blocks) / len(result.blocks))
 
     front_text = "\n\n".join(texts[: len(front_pages)])
-    back_text = "\n\n".join(texts[len(front_pages):])
+    back_text = "\n\n".join(texts[len(front_pages):len(front_pages) + len(back_pages)])
     full_text = "\n\n".join(texts)
     overall_conf = sum(confidences) / len(confidences) if confidences else 0.0
 

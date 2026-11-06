@@ -108,10 +108,11 @@ export const api = {
   async revokeServiceAccount(id: string) {
     return request<{ ok: boolean }>(`/api/admin/service-accounts/${id}`, { method: "DELETE" });
   },
-  async intake(file: File, typeId?: string, title?: string, kind?: string, fileBack?: File) {
+  async intake(file: File, typeId?: string, title?: string, kind?: string, fileBack?: File, extraPages?: File[]) {
     const form = new FormData();
     form.append("file", file);
     if (fileBack) form.append("file_back", fileBack);
+    for (const p of extraPages || []) form.append("extra_pages", p);
     const params = new URLSearchParams();
     if (typeId) params.set("type_id", typeId);
     if (title) params.set("title", title);

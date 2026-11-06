@@ -149,14 +149,15 @@ def auto_crop_and_straighten(image: np.ndarray) -> np.ndarray:
     return cv2.warpPerspective(image, matrix, (max_width, max_height))
 
 
-_SIDE_LABELS = ["FRONT", "BACK"]
-
-
-def stack_vertical(images: list[np.ndarray]) -> np.ndarray:
-    """Stitch cropped pages (e.g. the front and back of an ID card) into one image, so
-    a two-sided scan still stores/previews/downloads as a single file like any other
-    document. Each side gets a labelled card on a clean white mat with generous
-    breathing room, instead of butting the two scans together with a thin grey line."""
+def stack_vertical(images: list[np.ndarray], labels: list[str] | None = None) -> np.ndarray:
+    """Stitch cropped pages (e.g. the front/back of an ID card, or several pages of a
+    document scanned one at a time) into one image, so a multi-page scan still
+    stores/previews/downloads as a single file like any other document. Each page
+    gets a labelled card on a clean white mat with generous breathing room, instead
+    of butting the scans together with a thin grey line. `labels` lets the caller
+    say what each page actually is ("FRONT"/"BACK" for a two-sided ID, "PAGE 1"/
+    "PAGE 2"/... for a plain multi-page document) - defaults to "PAGE N" for all of
+    them when not given."""
     if len(images) == 1:
         return images[0]
 
@@ -169,7 +170,7 @@ def stack_vertical(images: list[np.ndarray]) -> np.ndarray:
         h, w = img.shape[:2]
         if w != width:
             img = cv2.resize(img, (width, int(h * width / w)))
-        label = _SIDE_LABELS[i] if i < len(_SIDE_LABELS) else f"PAGE {i + 1}"
+        label = labels[i] if labels and i < len(labels) else f"PAGE {i + 1}"
         label_row = np.full((label_h, width, 3), 255, dtype=np.uint8)
         cv2.putText(label_row, label, (0, label_h - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (90, 90, 90), 2, cv2.LINE_AA)
         rows.append(np.vstack([label_row, img]))
