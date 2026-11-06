@@ -6,7 +6,7 @@ import RequireAuth from "@/components/RequireAuth";
 import LiveScanner, { ScanMode } from "@/components/LiveScanner";
 import Spinner from "@/components/Spinner";
 import { api, ApiError, DocumentType } from "@/lib/api";
-import { Camera, Check, CreditCard, FileText, RotateCcw, ScanLine, Upload, X } from "lucide-react";
+import { Camera, Check, ChevronDown, CreditCard, FileText, RotateCcw, ScanLine, Upload, X } from "lucide-react";
 
 type Mode = "extract" | "document_only";
 
@@ -367,14 +367,21 @@ function IntakeForm() {
 
             <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 card-float">
               <label className="block text-sm font-medium text-zinc-300 mb-1.5">Document type (for structured extraction)</label>
-              <select className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" value={typeId} onChange={(e) => setTypeId(e.target.value)}>
-                <option value="">Auto-detect (MRZ / invoice heuristics)</option>
-                {types.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.domain})
-                  </option>
-                ))}
-              </select>
+              <div className="relative">
+                <select
+                  className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2.5 pr-9 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+                  value={typeId}
+                  onChange={(e) => setTypeId(e.target.value)}
+                >
+                  <option value="">Auto-detect (MRZ / invoice heuristics)</option>
+                  {types.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} ({t.domain})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              </div>
             </div>
 
             <p className="text-sm font-medium text-zinc-300 pt-1">What do you want to do with this scan?</p>

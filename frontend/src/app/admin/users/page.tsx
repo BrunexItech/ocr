@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { api, ApiError, UserOut } from "@/lib/api";
+import { ChevronDown } from "lucide-react";
 
 const ROLES = ["admin", "approver", "reviewer", "intake", "viewer"];
 
@@ -62,20 +63,23 @@ function UsersAdmin() {
                 <td className="px-4 py-2">{u.name}</td>
                 <td className="px-4 py-2 text-zinc-500">{u.email}</td>
                 <td className="px-4 py-2">
-                  <select
-                    className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-2 py-1 text-sm"
-                    value={u.role}
-                    onChange={async (e) => {
-                      await api.updateUser(u.id, { role: e.target.value });
-                      reload();
-                    }}
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>
-                        {r}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="relative inline-block">
+                    <select
+                      className="appearance-none rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 px-2 py-1 pr-7 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+                      value={u.role}
+                      onChange={async (e) => {
+                        await api.updateUser(u.id, { role: e.target.value });
+                        reload();
+                      }}
+                    >
+                      {ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+                  </div>
                 </td>
                 <td className="px-4 py-2">
                   <button
@@ -100,13 +104,20 @@ function UsersAdmin() {
           <input className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" placeholder="Full name" value={name} onChange={(e) => setName(e.target.value)} required />
           <input className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" placeholder="Email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
           <input className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" placeholder="Temporary password" type="text" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-          <select className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" value={role} onChange={(e) => setRole(e.target.value)}>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+          <div className="relative">
+            <select
+              className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2 pr-9 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
+              {ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          </div>
         </div>
         {error && <p className="text-sm text-red-400">{error}</p>}
         <button disabled={busy} className="rounded-lg bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-emerald-700 active:scale-[0.97] transition shadow-sm disabled:opacity-50 disabled:hover:bg-emerald-600">

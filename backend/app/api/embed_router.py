@@ -6,10 +6,11 @@ from __future__ import annotations
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 
 from app.auth.api_key import create_embed_token, get_embed_account, get_service_account
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.base import DocumentType, ServiceAccount
 from app.pipeline.classify import classify_and_extract
@@ -22,7 +23,8 @@ _engine = default_engine(use_gpu=settings.use_gpu)
 
 
 @router.post("/token")
-def issue_embed_token(account: ServiceAccount = Depends(get_service_account)):
+@limiter.limit("30/minute")
+def issue_embed_token(request: Request, account: ServiceAccount = Depends(get_service_account)):
     """A parent page's own backend calls this (with its long-lived API key) to get a
     short-lived token to hand to the iframe - the long-lived key itself never has to
     touch the browser."""
@@ -31,7 +33,9 @@ def issue_embed_token(account: ServiceAccount = Depends(get_service_account)):
 
 
 @router.post("/extract")
+@limiter.limit("20/minute")
 def embed_extract(
+    request: Request,
     file: UploadFile = File(...),
     type_id: str | None = Form(None),
     kind: str | None = Form(None),

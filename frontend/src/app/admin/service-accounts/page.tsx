@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { api, ApiError, ServiceAccountOut } from "@/lib/api";
-import { Copy, Trash2 } from "lucide-react";
+import { ChevronDown, Copy, Trash2 } from "lucide-react";
 
 function ServiceAccountsAdmin() {
   const [items, setItems] = useState<ServiceAccountOut[]>([]);
@@ -122,14 +122,17 @@ function ServiceAccountsAdmin() {
             onChange={(e) => setName(e.target.value)}
             required
           />
-          <select
-            className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2 text-sm"
-            value={role}
-            onChange={(e) => setRole(e.target.value)}
-          >
-            <option value="intake">intake</option>
-            <option value="viewer">viewer</option>
-          </select>
+          <div className="relative">
+            <select
+              className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2 pr-9 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+            >
+              <option value="intake">intake</option>
+              <option value="viewer">viewer</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          </div>
         </div>
         {error && <p className="text-sm text-red-400">{error}</p>}
         <button disabled={busy} className="rounded-lg bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-emerald-700 active:scale-[0.97] transition shadow-sm disabled:opacity-50 disabled:hover:bg-emerald-600">

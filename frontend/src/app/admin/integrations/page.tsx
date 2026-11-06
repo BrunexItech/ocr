@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { api, ApiError, IntegrationOut } from "@/lib/api";
+import { ChevronDown } from "lucide-react";
 
 function IntegrationsAdmin() {
   const [items, setItems] = useState<IntegrationOut[]>([]);
@@ -75,10 +76,17 @@ function IntegrationsAdmin() {
         <h2 className="text-sm font-semibold text-zinc-300">New integration</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <input className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <select className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm" value={kind} onChange={(e) => setKind(e.target.value)}>
-            <option value="webhook">Webhook (push to a URL)</option>
-            <option value="csv_export">CSV export (manual)</option>
-          </select>
+          <div className="relative">
+            <select
+              className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2 pr-9 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+              value={kind}
+              onChange={(e) => setKind(e.target.value)}
+            >
+              <option value="webhook">Webhook (push to a URL)</option>
+              <option value="csv_export">CSV export (manual)</option>
+            </select>
+            <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+          </div>
         </div>
         {kind === "webhook" && (
           <input

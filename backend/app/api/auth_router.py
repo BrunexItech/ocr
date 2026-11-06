@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.deps import get_current_user
 from app.auth.security import create_access_token, hash_password, verify_password
 from app.core.audit import record
+from app.core.limiter import limiter
 from app.db.session import get_db
 from app.models.base import Role, User
 
@@ -29,7 +30,8 @@ class RegisterIn(BaseModel):
 
 
 @router.post("/register", response_model=UserOut)
-def register(body: RegisterIn, db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def register(request: Request, body: RegisterIn, db: Session = Depends(get_db)):
     """First registered user becomes admin; later ones default to viewer (admin promotes them)."""
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(400, "Email already registered")
@@ -44,7 +46,8 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
 
 
 @router.post("/login")
-def login(form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("10/minute")
+def login(request: Request, form: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form.username).first()
     if not user or not verify_password(form.password, user.password_hash):
         raise HTTPException(401, "Incorrect email or password")

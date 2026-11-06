@@ -23,3 +23,4 @@ python-jose[cryptography]==3.3.0
 # Not installed by default - the core scan/intake/review flow never imports these.
 # transformers==4.44.2
 # protobuf
+slowapi==0.1.10

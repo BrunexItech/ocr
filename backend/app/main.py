@@ -1,5 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
 from app.api.admin_router import router as admin_router
 from app.api.audit_router import router as audit_router
@@ -9,6 +11,7 @@ from app.api.embed_router import router as embed_router
 from app.api.integrations_router import router as integrations_router
 from app.api.zones_router import router as zones_router
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.db.session import Base, engine, ensure_columns
 from app.models import base as _models  # noqa: F401  (ensures models are registered before create_all)
 
@@ -16,6 +19,9 @@ Base.metadata.create_all(bind=engine)
 ensure_columns("documents", {"title": "VARCHAR(255)", "pre_cropped": "BOOLEAN DEFAULT 0", "kind_hint": "VARCHAR(32)"})
 
 app = FastAPI(title=settings.app_name)
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 app.add_middleware(
     CORSMiddleware,

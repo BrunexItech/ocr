@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { api, ApiError, DocumentType } from "@/lib/api";
+import { ChevronDown } from "lucide-react";
 
 type FieldRow = { key: string; label: string; type: string; required: boolean; sensitive: boolean };
 
@@ -102,11 +103,18 @@ function TypesAdmin() {
             <div key={i} className="grid grid-cols-2 sm:grid-cols-6 gap-2 items-center">
               <input className="col-span-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-2 py-1.5 text-sm" placeholder="key" value={f.key} onChange={(e) => updateField(i, { key: e.target.value })} />
               <input className="col-span-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-2 py-1.5 text-sm" placeholder="label" value={f.label} onChange={(e) => updateField(i, { label: e.target.value })} />
-              <select className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-2 py-1.5 text-sm" value={f.type} onChange={(e) => updateField(i, { type: e.target.value })}>
-                <option value="text">text</option>
-                <option value="number">number</option>
-                <option value="date">date</option>
-              </select>
+              <div className="relative">
+                <select
+                  className="w-full appearance-none rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 px-2 py-1.5 pr-7 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+                  value={f.type}
+                  onChange={(e) => updateField(i, { type: e.target.value })}
+                >
+                  <option value="text">text</option>
+                  <option value="number">number</option>
+                  <option value="date">date</option>
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" />
+              </div>
               <div className="flex gap-2 text-xs text-zinc-500">
                 <label className="flex items-center gap-1">
                   <input type="checkbox" checked={f.required} onChange={(e) => updateField(i, { required: e.target.checked })} />

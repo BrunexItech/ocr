@@ -3,7 +3,7 @@ from pathlib import Path
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth.deps import get_current_user, require_roles
 from app.core.audit import record
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.core.masking import mask_fields
 from app.core.validation import validate_fields
 from app.db.session import get_db
@@ -126,7 +127,9 @@ async def crop_preview(file: UploadFile = File(...), user: User = Depends(get_cu
 
 
 @router.post("/intake", response_model=DocOut)
+@limiter.limit("30/minute")
 async def intake(
+    request: Request,
     file: UploadFile = File(...),
     file_back: UploadFile | None = File(None),  # ID cards carry data on both sides
     extra_pages: list[UploadFile] = File(default=[]),  # additional pages for a multi-page document scan (Adobe Scan-style "add another page")

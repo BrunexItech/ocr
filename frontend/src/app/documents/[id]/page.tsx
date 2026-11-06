@@ -6,7 +6,7 @@ import RequireAuth from "@/components/RequireAuth";
 import DocThumb from "@/components/DocThumb";
 import { useAuth } from "@/lib/auth-context";
 import { api, ApiError, DocumentOut, IntegrationOut } from "@/lib/api";
-import { Check, Pencil, X as XIcon } from "lucide-react";
+import { Check, ChevronDown, Pencil, X as XIcon } from "lucide-react";
 import Spinner from "@/components/Spinner";
 import { humanizeFieldKey } from "@/lib/format";
 
@@ -253,18 +253,21 @@ function DocumentDetail() {
             </p>
           ) : (
             <>
-              <select
-                className="w-full rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm mb-3"
-                value={pushIntegration}
-                onChange={(e) => setPushIntegration(e.target.value)}
-              >
-                <option value="">Choose a destination…</option>
-                {integrations.map((i) => (
-                  <option key={i.id} value={i.id}>
-                    {i.name} ({i.kind})
-                  </option>
-                ))}
-              </select>
+              <div className="relative mb-3">
+                <select
+                  className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2.5 pr-9 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+                  value={pushIntegration}
+                  onChange={(e) => setPushIntegration(e.target.value)}
+                >
+                  <option value="">Choose a destination…</option>
+                  {integrations.map((i) => (
+                    <option key={i.id} value={i.id}>
+                      {i.name} ({i.kind})
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+              </div>
               <div className="flex flex-wrap gap-3 mb-3">
                 {Object.keys(doc.fields).map((k) => (
                   <label key={k} className="flex items-center gap-1.5 text-sm text-zinc-400">

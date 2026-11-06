@@ -6,7 +6,7 @@ import RequireAuth from "@/components/RequireAuth";
 import DocThumb from "@/components/DocThumb";
 import { api, DocumentOut } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { Camera, Clock, CheckCircle2, FileStack, Plus, FileSearch, Search, X } from "lucide-react";
+import { Camera, FileStack, Plus, Search, X, ChevronDown } from "lucide-react";
 
 const STATUS_STYLE: Record<string, string> = {
   queued: "bg-zinc-800 text-zinc-400",
@@ -23,27 +23,6 @@ function StatusChip({ status }: { status: string }) {
     <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[status] || "bg-zinc-800 text-zinc-400"}`}>
       {status.replace("_", " ")}
     </span>
-  );
-}
-
-function QuickAction({ icon, label, onClick, href }: { icon: React.ReactNode; label: string; onClick?: () => void; href?: string }) {
-  const inner = (
-    <>
-      <span className="w-12 h-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-emerald-400 group-hover:border-emerald-500/40 transition">
-        {icon}
-      </span>
-      <span className="text-xs text-zinc-400 group-hover:text-zinc-200 transition">{label}</span>
-    </>
-  );
-  const cls = "group flex flex-col items-center gap-1.5";
-  return href ? (
-    <Link href={href} className={cls}>
-      {inner}
-    </Link>
-  ) : (
-    <button type="button" onClick={onClick} className={cls}>
-      {inner}
-    </button>
   );
 }
 
@@ -93,16 +72,6 @@ function DocumentsList() {
         </Link>
       </div>
 
-      {["admin", "intake"].includes(user?.role || "") && (
-        <div className="flex items-center gap-6 mb-6 overflow-x-auto pb-1">
-          <QuickAction icon={<Camera className="w-5 h-5" />} label="Scan" href="/intake" />
-          <QuickAction icon={<FileSearch className="w-5 h-5" />} label="Needs review" onClick={() => setFilter("awaiting_review")} />
-          <QuickAction icon={<Clock className="w-5 h-5" />} label="Awaiting approval" onClick={() => setFilter("awaiting_approval")} />
-          <QuickAction icon={<CheckCircle2 className="w-5 h-5" />} label="Approved" onClick={() => setFilter("approved")} />
-          <QuickAction icon={<FileStack className="w-5 h-5" />} label="All" onClick={() => setFilter("")} />
-        </div>
-      )}
-
       <div className="relative mb-5">
         <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
         <input
@@ -124,13 +93,15 @@ function DocumentsList() {
         )}
       </div>
 
-      <div className="flex gap-1 mb-5 border-b border-zinc-800 overflow-x-auto">
+      <div className="flex gap-1.5 mb-6 overflow-x-auto pb-0.5">
         {tabs.map(([value, label]) => (
           <button
             key={value}
             onClick={() => setFilter(value)}
-            className={`px-3 py-2 text-sm font-medium border-b-2 -mb-px whitespace-nowrap ${
-              filter === value ? "border-emerald-600 text-emerald-400" : "border-transparent text-zinc-500 hover:text-zinc-200"
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition ${
+              filter === value
+                ? "bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/40"
+                : "text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200"
             }`}
           >
             {label}
