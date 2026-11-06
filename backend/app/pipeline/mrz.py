@@ -28,13 +28,18 @@ def _clean(s: str) -> str:
     return re.sub(r"[^A-Z0-9<]", "", s.upper())
 
 
+_NATIONALITY_RE = re.compile(r"^[A-Z]{3}$")
+_LEADING_DIGITS = re.compile(r"^(\d+)")
+
+
 @dataclass
 class MrzResult:
     doc_type: str
     issuing_country: str
     surname: str
     given_names: str
-    document_number: str
+    document_number: str  # the document/card's own serial number, NOT necessarily the holder's national ID number (they differ on e.g. Kenyan TD1 cards)
+    id_number: str  # the holder's actual ID/passport number - see _derive_id_number
     nationality: str
     birth_date: str  # YYMMDD
     sex: str
@@ -42,6 +47,27 @@ class MrzResult:
     personal_number: str
     checks: dict  # field -> bool (checksum valid)
     valid: bool
+
+
+def _clean_nationality(raw: str) -> str:
+    """Only keep it if it's actually a plausible ISO-3166 alpha-3 code - some real
+    TD1 cards (observed on a real Kenyan ID) don't populate this slot the way the
+    spec describes, and a garbage 3-char fragment is worse than admitting we don't
+    have it."""
+    return raw if _NATIONALITY_RE.match(raw) else ""
+
+
+def _derive_id_number(document_number: str, optional_data_2: str) -> str:
+    """On a real Kenyan TD1 ID card, MRZ line 1's "document number" field actually
+    holds the card's serial number - a different thing from the printed "ID NUMBER"
+    citizens actually use. The real ID number is embedded in line 2's second
+    optional-data field instead (a digit run followed by a check character and
+    "<" padding). Prefer that when it looks like a real number; otherwise fall
+    back to document_number (right for a passport, where there's no such split)."""
+    m = _LEADING_DIGITS.match(optional_data_2)
+    if m and len(m.group(1)) >= 6:
+        return m.group(1)
+    return document_number
 
 
 def _fmt_date(yymmdd: str) -> str:
@@ -78,9 +104,11 @@ def parse_td3(line1: str, line2: str) -> MrzResult:
     composite = doc_number + doc_check + birth_date + birth_check + expiry_date + expiry_check + personal_number + personal_check
     checks["composite"] = str(_check_digit(composite)) == composite_check
 
+    doc_number_clean = doc_number.rstrip("<")
     return MrzResult(
         doc_type=doc_type, issuing_country=issuing_country, surname=surname, given_names=given_names,
-        document_number=doc_number.rstrip("<"), nationality=nationality,
+        document_number=doc_number_clean, id_number=doc_number_clean,  # passport number IS the id number, no split
+        nationality=_clean_nationality(nationality),
         birth_date=_fmt_date(birth_date), sex=sex, expiry_date=_fmt_date(expiry_date),
         personal_number=personal_number.rstrip("<"), checks=checks,
         valid=all(checks.values()),
@@ -102,6 +130,7 @@ def parse_td1(line1: str, line2: str, line3: str) -> MrzResult:
     sex = l2[7]
     expiry_date, expiry_check = l2[8:14], l2[14]
     nationality = l2[15:18]
+    optional_data_2 = l2[18:29]
     composite_check = l2[29]
 
     names = l3.split("<<", 1)
@@ -116,9 +145,11 @@ def parse_td1(line1: str, line2: str, line3: str) -> MrzResult:
     composite = doc_number + doc_check + birth_date + birth_check + expiry_date + expiry_check + personal_number
     checks["composite"] = str(_check_digit(composite)) == composite_check
 
+    doc_number_clean = doc_number.rstrip("<")
     return MrzResult(
         doc_type=doc_type, issuing_country=issuing_country, surname=surname, given_names=given_names,
-        document_number=doc_number.rstrip("<"), nationality=nationality,
+        document_number=doc_number_clean, id_number=_derive_id_number(doc_number_clean, optional_data_2),
+        nationality=_clean_nationality(nationality),
         birth_date=_fmt_date(birth_date), sex=sex, expiry_date=_fmt_date(expiry_date),
         personal_number=personal_number.rstrip("<"), checks=checks,
         valid=all(checks.values()),
@@ -149,16 +180,20 @@ def find_and_parse_mrz(full_text: str) -> MrzResult | None:
 
 
 def mrz_to_fields(result: MrzResult) -> dict:
+    """Key names here match extract_id_fields' (the no-MRZ fallback) exactly - so
+    the UI shows the same field names ("ID Number", "Date Of Birth", ...) and a
+    reviewer correcting a value isn't faced with a different vocabulary depending on
+    which path happened to read the card."""
+    full_name = f"{result.given_names} {result.surname}".strip() if result.given_names else result.surname
     return {
         "document_type": "Passport" if result.doc_type.startswith("P") else "ID card",
         "issuing_country": result.issuing_country,
-        "surname": result.surname,
-        "given_names": result.given_names,
-        "document_number": result.document_number,
+        "full_name": full_name,
+        "id_number": result.id_number,
+        "document_number": result.document_number,  # the card's own serial number - kept distinct from id_number since they can differ (e.g. Kenyan TD1)
         "nationality": result.nationality,
-        "birth_date": result.birth_date,
+        "date_of_birth": result.birth_date,
         "sex": result.sex,
-        "expiry_date": result.expiry_date,
-        "personal_number": result.personal_number,
+        "date_of_expiry": result.expiry_date,
         "mrz_checksum_valid": result.valid,
     }
