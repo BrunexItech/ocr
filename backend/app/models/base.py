@@ -58,6 +58,7 @@ class Document(Base):
     tracking_no: Mapped[str] = mapped_column(String(64), unique=True, index=True)
     title: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     pre_cropped: Mapped[bool] = mapped_column(Boolean, default=False)  # stored file is already final (e.g. stitched front+back) - don't re-crop on preview
+    kind_hint: Mapped[str | None] = mapped_column(String(32), nullable=True)  # the scan-mode card the user picked (document/id_card/passport) - trusted for the displayed kind even if extraction came back empty
     type_id: Mapped[str | None] = mapped_column(String(32), ForeignKey("document_types.id"), nullable=True)
     status: Mapped[str] = mapped_column(DocStatus, default="queued")
     sensitivity: Mapped[str] = mapped_column(String(32), default="internal")

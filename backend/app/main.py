@@ -13,7 +13,7 @@ from app.db.session import Base, engine, ensure_columns
 from app.models import base as _models  # noqa: F401  (ensures models are registered before create_all)
 
 Base.metadata.create_all(bind=engine)
-ensure_columns("documents", {"title": "VARCHAR(255)", "pre_cropped": "BOOLEAN DEFAULT 0"})
+ensure_columns("documents", {"title": "VARCHAR(255)", "pre_cropped": "BOOLEAN DEFAULT 0", "kind_hint": "VARCHAR(32)"})
 
 app = FastAPI(title=settings.app_name)
 

@@ -63,27 +63,15 @@ def order_points(pts: np.ndarray) -> np.ndarray:
     return rect
 
 
-def find_document_contour(image: np.ndarray) -> np.ndarray | None:
-    """Detect the page/document boundary in a photo (CamScanner-style edge detection)."""
-    h, w = image.shape[:2]
-    scale = 1000.0 / max(h, w)
-    if scale < 1:
-        small = cv2.resize(image, (int(w * scale), int(h * scale)))
-    else:
-        small = image.copy()
-        scale = 1.0  # no resize happened - contour coords are already full-scale
-
-    gray = _to_gray(small)
-    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-    edges = cv2.Canny(blurred, 50, 150)
-    edges = cv2.dilate(edges, np.ones((3, 3), np.uint8), iterations=1)
-
+def _largest_quad_from_edges(edges: np.ndarray, img_area: float) -> np.ndarray | None:
+    """Given a binary edge/mask image, returns either a clean 4-point polygon for
+    the largest sufficiently-big contour, or that contour's rotated bounding box as
+    a fallback, or None if nothing big enough was found at all."""
     contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
     if not contours:
         return None
     contours = sorted(contours, key=cv2.contourArea, reverse=True)[:5]
 
-    img_area = small.shape[0] * small.shape[1]
     min_area = img_area * 0.1
     best_large_contour = None
     for c in contours:
@@ -95,15 +83,43 @@ def find_document_contour(image: np.ndarray) -> np.ndarray | None:
         peri = cv2.arcLength(c, True)
         approx = cv2.approxPolyDP(c, 0.02 * peri, True)
         if len(approx) == 4:
-            return approx.reshape(4, 2).astype("float32") / scale
+            return approx.reshape(4, 2).astype("float32")
 
-    # No clean 4-point polygon (common on glossy/laminated ID cards where glare and
-    # rounded corners break up the edge trace) - fall back to the largest contour's
-    # rotated bounding box, which still trims off the surrounding background instead
-    # of giving up and returning the whole frame.
     if best_large_contour is not None:
-        box = cv2.boxPoints(cv2.minAreaRect(best_large_contour))
-        return box.astype("float32") / scale
+        return cv2.boxPoints(cv2.minAreaRect(best_large_contour)).astype("float32")
+    return None
+
+
+def find_document_contour(image: np.ndarray) -> np.ndarray | None:
+    """Detect the page/document boundary in a photo (CamScanner-style edge detection).
+    Tries plain Canny edges first (works well for most photos); if that finds nothing
+    big enough - common for a light document photographed on a similarly light
+    background, where there's barely any brightness edge for Canny to latch onto at
+    all - falls back to adaptive thresholding, which picks up the page's shadow/
+    texture boundary even when a straight brightness-gradient edge isn't there."""
+    h, w = image.shape[:2]
+    scale = 1000.0 / max(h, w)
+    if scale < 1:
+        small = cv2.resize(image, (int(w * scale), int(h * scale)))
+    else:
+        small = image.copy()
+        scale = 1.0  # no resize happened - contour coords are already full-scale
+
+    gray = _to_gray(small)
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    img_area = small.shape[0] * small.shape[1]
+
+    canny_edges = cv2.Canny(blurred, 50, 150)
+    canny_edges = cv2.dilate(canny_edges, np.ones((3, 3), np.uint8), iterations=1)
+    quad = _largest_quad_from_edges(canny_edges, img_area)
+    if quad is not None:
+        return quad / scale
+
+    adaptive = cv2.adaptiveThreshold(blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 35, 3)
+    adaptive = cv2.morphologyEx(adaptive, cv2.MORPH_CLOSE, np.ones((15, 15), np.uint8), iterations=3)
+    quad = _largest_quad_from_edges(adaptive, img_area)
+    if quad is not None:
+        return quad / scale
     return None
 
 

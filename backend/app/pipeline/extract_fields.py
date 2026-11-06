@@ -63,14 +63,18 @@ _INVOICE_KEYWORDS = re.compile(
     r"unit\s+price|vat|tax\s+id|payment\s+terms|bill\s+to|ship\s+to)\b", re.I,
 )
 
-_ID_LABELS = {
-    "id_number": re.compile(r"\b(?:id|identity|serial)\s*(?:no\.?|number|#)\s*[:\-]?\s*([A-Za-z0-9]{4,20})", re.I),
-    "date_of_birth": re.compile(r"\b(?:date\s+of\s+birth|d\.?o\.?b\.?)\s*[:\-]?\s*([\d]{1,2}[/\-.][\d]{1,2}[/\-.][\d]{2,4}|[A-Za-z]{3,9}\s+\d{1,2},?\s+\d{4})", re.I),
-    "date_of_issue": re.compile(r"\bdate\s+of\s+issue\s*[:\-]?\s*([\d]{1,2}[/\-.][\d]{1,2}[/\-.][\d]{2,4})", re.I),
-    "date_of_expiry": re.compile(r"\b(?:date\s+of\s+expiry|expiry\s+date)\s*[:\-]?\s*([\d]{1,2}[/\-.][\d]{1,2}[/\-.][\d]{2,4})", re.I),
-    "sex": re.compile(r"\b(?:sex|gender)\s*[:\-]?\s*(male|female|[mf])\b", re.I),
-    "nationality": re.compile(r"\bnationality\s*[:\-]?\s*([A-Za-z ]{3,30})(?=\n|$)", re.I),
-    "full_name": re.compile(r"\b(?:full\s+name|name)\s*[:\-]?\s*([A-Za-z.'\- ]{3,60})(?=\n|$)", re.I),
+# Real Kenyan ID cards don't necessarily print "Serial Number" as the same thing as
+# "ID Number" - they're two different fields - so "serial" is deliberately NOT an
+# alias for id_number here, unlike the more permissive generic schema aliasing.
+_ID_LABEL_ALIASES = {
+    "id_number": ["ID Number", "ID No", "ID No.", "National ID", "National ID No", "ID/Passport No"],
+    "date_of_birth": ["Date of Birth", "DOB", "D.O.B"],
+    "date_of_issue": ["Date of Issue"],
+    "date_of_expiry": ["Date of Expiry", "Expiry Date"],
+    "sex": ["Sex", "Gender"],
+    "nationality": ["Nationality", "Citizenship"],
+    "full_name": ["Full Names", "Full Name", "Names", "Name"],
+    "district_of_birth": ["District of Birth", "Place of Birth"],
 }
 
 
@@ -85,12 +89,19 @@ def looks_like_id(full_text: str) -> bool:
 def extract_id_fields(full_text: str) -> dict:
     """Label-based fallback for ID cards/passports that have no machine-readable zone
     at all (most national ID cards don't) - pulls whatever labelled fields it can find
-    instead of forcing the document through the invoice extractor."""
+    instead of forcing the document through the invoice extractor. Real ID cards often
+    print the label and its value on two separate lines with no colon at all (e.g.
+    "FULL NAMES" then "JOHN KAMAU MWANGI" on the next line) - _find_labelled_value
+    handles that, not just same-line "Label: Value"."""
     text = normalize_ocr_spacing(full_text)
     fields: dict = {}
-    for key, pattern in _ID_LABELS.items():
-        m = pattern.search(text)
-        fields[key] = m.group(1).strip() if m else None
+    for key, aliases in _ID_LABEL_ALIASES.items():
+        value = None
+        for label in sorted(aliases, key=len, reverse=True):
+            value = _find_labelled_value(text, label)
+            if value:
+                break
+        fields[key] = value
     return fields
 
 
@@ -103,7 +114,28 @@ def _label_pattern(label: str) -> re.Pattern:
     # Anchored to the start of a line (so "Sport" can't match inside a "SPORTS"
     # elsewhere on the page, e.g. a form's own title) and a trailing word boundary
     # (so "Sport" doesn't match the "Sport" prefix of "Sports" either).
-    return re.compile(rf"^\s*{spaced}\b\s*[:\-]?\s*([^\n]{{1,80}})", re.I | re.MULTILINE)
+    return re.compile(rf"^[ \t]*{spaced}\b[ \t]*([^\n]*)$", re.I | re.MULTILINE)
+
+
+def _find_labelled_value(text: str, label: str) -> str | None:
+    """Finds a label and returns the value after it - on the SAME line
+    ("Full Name: John Doe"), or, when the label has nothing after it, on the very
+    next non-blank line (many real ID cards and printed forms put the label and its
+    value on two separate lines with no colon at all, e.g. "FULL NAMES" on one line
+    and "JOHN KAMAU MWANGI" on the next)."""
+    m = _label_pattern(label).search(text)
+    if not m:
+        return None
+    same_line = m.group(1).strip().strip(":-").strip()
+    if same_line:
+        return same_line
+    line_no = text.count("\n", 0, m.start())
+    for nxt in text.splitlines()[line_no + 1:]:
+        nxt = nxt.strip()
+        if nxt:
+            return nxt
+        break  # a genuinely blank line means there's no value here, not "skip ahead"
+    return None
 
 
 def extract_fields_by_schema(full_text: str, fields_schema: dict) -> dict:
@@ -133,11 +165,10 @@ def extract_fields_by_schema(full_text: str, fields_schema: dict) -> dict:
         candidates.sort(key=len, reverse=True)
         value = None
         for candidate in candidates:
-            m = _label_pattern(candidate).search(text)
-            if m:
-                value = m.group(1).strip().strip(":-").strip()
+            value = _find_labelled_value(text, candidate)
+            if value:
                 break
-        fields[key] = value or None
+        fields[key] = value
     return fields
 
 

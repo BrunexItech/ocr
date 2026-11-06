@@ -52,17 +52,23 @@ class DocOut(BaseModel):
         from_attributes = True
 
 
-def _detect_kind(fields: dict, doc_type: DocumentType | None = None) -> str:
+def _detect_kind(fields: dict, doc_type: DocumentType | None = None, kind_hint: str | None = None) -> str:
     """Human-readable label for what this document is. When an admin-configured
     document type was actually used, show its real name instead of guessing - no
     point heuristically re-deriving "Player Registration" when we already know that
-    for certain. The heuristic below only runs for auto-detected (no doc_type)
-    documents, and checks whether a field actually HAS a value, not merely whether
-    its key exists - the generic/invoice extractor always includes keys like
-    "invoice_number" in its output even when nothing was found, so checking key
-    presence alone mislabeled every generic document as an invoice."""
+    for certain. Otherwise, trust the scan-mode card the user explicitly picked
+    (kind_hint) - if they tapped "ID card", it's an ID card even on a real card
+    where OCR couldn't read a single field reliably; don't let a failed extraction
+    silently relabel it as a plain "Document" too. The heuristic below only runs
+    for fully auto-detected documents (no doc_type, no kind_hint), and checks
+    whether a field actually HAS a value, not merely whether its key exists - the
+    generic/invoice extractor always includes keys like "invoice_number" in its
+    output even when nothing was found, so checking key presence alone mislabeled
+    every generic document as an invoice."""
     if doc_type:
         return doc_type.name
+    if kind_hint in ("id_card", "passport"):
+        return "ID card / Passport"
     if any(fields.get(k) for k in ("mrz_checksum_valid", "document_number", "surname", "id_number", "date_of_birth")):
         return "ID card / Passport"
     if any(fields.get(k) for k in ("invoice_number", "total_amount")):
@@ -74,7 +80,7 @@ def _doc_to_out(d: Document, user: User, db: Session, reveal: bool = False) -> d
     dt = db.get(DocumentType, d.type_id) if d.type_id else None
     out = DocOut.model_validate(d).model_dump()
     out["fields"] = mask_fields(d.fields, dt, Role(user.role), reveal)
-    out["detected_kind"] = _detect_kind(d.fields, dt)
+    out["detected_kind"] = _detect_kind(d.fields, dt, d.kind_hint)
     return out
 
 
@@ -172,7 +178,7 @@ async def intake(
         dest.write_bytes(data)
 
     doc = Document(tracking_no=tracking_no, title=(title or "").strip() or None, type_id=type_id,
-                    file_name=stored_name, file_path=str(dest), pre_cropped=bool(back_pages),
+                    file_name=stored_name, file_path=str(dest), pre_cropped=bool(back_pages), kind_hint=kind,
                     sensitivity=doc_type.default_sensitivity if doc_type else "internal",
                     created_by=user.id, status="processing")
     db.add(doc)
