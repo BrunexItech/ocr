@@ -110,13 +110,29 @@ def extract_fields_by_schema(full_text: str, fields_schema: dict) -> dict:
     """The actual point of running OCR on a configurable document: for every field the
     admin defined (school record, hospital form, sports roster, whatever the domain),
     search the OCR'd text for that field's label and pull the value that follows it -
-    instead of forcing every document through the same fixed invoice/ID shape."""
+    instead of forcing every document through the same fixed invoice/ID shape.
+
+    A field can define "labels": [...] - alternative wordings a real form might use
+    instead of (or as well as) its primary "label" (e.g. "Sex" alongside "Gender",
+    "DOB" alongside "Date of Birth"). Every candidate is tried in order; the first
+    one that matches wins. Falls back to "label", then the key itself, when no
+    "labels" list is given."""
     text = normalize_ocr_spacing(full_text)
     fields: dict = {}
     for key, spec in (fields_schema or {}).items():
-        label = (spec or {}).get("label") or key.replace("_", " ")
+        spec = spec or {}
+        label = spec.get("label") or key.replace("_", " ")
+        candidates = list(spec.get("labels") or [])
+        for fallback in (label, key.replace("_", " ")):
+            if fallback not in candidates:
+                candidates.append(fallback)
+        # Longest/most specific label first - otherwise a short generic alias like
+        # "Name" matches as a prefix of a longer one on the same line ("Name of
+        # Player:"), swallowing the rest of that line before the specific alias
+        # ever gets a chance to match.
+        candidates.sort(key=len, reverse=True)
         value = None
-        for candidate in (label, key.replace("_", " ")):
+        for candidate in candidates:
             m = _label_pattern(candidate).search(text)
             if m:
                 value = m.group(1).strip().strip(":-").strip()
