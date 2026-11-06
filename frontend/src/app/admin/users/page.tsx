@@ -109,7 +109,7 @@ function UsersAdmin() {
           </select>
         </div>
         {error && <p className="text-sm text-red-400">{error}</p>}
-        <button disabled={busy} className="rounded-md bg-emerald-600 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50">
+        <button disabled={busy} className="rounded-lg bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-emerald-700 active:scale-[0.97] transition shadow-sm disabled:opacity-50 disabled:hover:bg-emerald-600">
           {busy ? "Creating…" : "Create user"}
         </button>
       </form>

@@ -29,7 +29,7 @@ function AuditAdmin() {
           <h1 className="text-xl font-semibold mb-1">Audit trail</h1>
           <p className="text-sm text-zinc-500">Hash-chained, tamper-evident log of every action in the system.</p>
         </div>
-        <button onClick={onVerify} disabled={busy} className="rounded-md bg-zinc-700 text-white px-3 py-1.5 text-sm font-medium disabled:opacity-50 self-start sm:self-auto whitespace-nowrap">
+        <button onClick={onVerify} disabled={busy} className="rounded-lg bg-zinc-700 text-white px-5 py-2.5 text-sm font-semibold hover:bg-zinc-600 active:scale-[0.97] transition shadow-sm disabled:opacity-50 self-start sm:self-auto whitespace-nowrap">
           {busy ? "Verifying…" : "Verify chain integrity"}
         </button>
       </div>

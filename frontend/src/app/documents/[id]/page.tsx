@@ -8,6 +8,7 @@ import { useAuth } from "@/lib/auth-context";
 import { api, ApiError, DocumentOut, IntegrationOut } from "@/lib/api";
 import { Check, Pencil, X as XIcon } from "lucide-react";
 import Spinner from "@/components/Spinner";
+import { humanizeFieldKey } from "@/lib/format";
 
 function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -44,8 +45,8 @@ function DocumentDetail() {
 
   if (!doc) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Spinner className="w-7 h-7" />
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <Spinner className="w-8 h-8" />
       </div>
     );
   }
@@ -154,7 +155,7 @@ function DocumentDetail() {
           {Object.entries(draft).map(([key, value]) => (
             <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-3 sm:items-center">
               <label className="text-sm text-zinc-400 sm:col-span-1">
-                {key}
+                {humanizeFieldKey(key)}
                 {doc.field_confidence[key] != null && (
                   <span className="block text-xs text-zinc-500">{(doc.field_confidence[key] * 100).toFixed(0)}% confidence</span>
                 )}
@@ -274,7 +275,7 @@ function DocumentDetail() {
                         setPushFields((prev) => (e.target.checked ? [...prev, k] : prev.filter((x) => x !== k)))
                       }
                     />
-                    {k}
+                    {humanizeFieldKey(k)}
                   </label>
                 ))}
               </div>

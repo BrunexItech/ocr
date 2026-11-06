@@ -15,8 +15,8 @@ export default function RequireAuth({ roles, children }: { roles?: string[]; chi
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Spinner className="w-7 h-7" />
+      <div className="min-h-[70vh] flex items-center justify-center">
+        <Spinner className="w-8 h-8" />
       </div>
     );
   }

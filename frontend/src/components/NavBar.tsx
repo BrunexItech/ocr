@@ -59,7 +59,10 @@ export default function NavBar() {
               <span className="text-sm text-zinc-500 whitespace-nowrap">
                 {user.name} · <span className="uppercase text-xs font-semibold text-emerald-400">{user.role}</span>
               </span>
-              <button onClick={logout} className="text-sm font-medium text-zinc-500 hover:text-zinc-100 whitespace-nowrap">
+              <button
+                onClick={logout}
+                className="text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md px-3 py-1.5 whitespace-nowrap transition"
+              >
                 Sign out
               </button>
             </>
@@ -101,7 +104,10 @@ export default function NavBar() {
                 <span className="text-sm text-zinc-500">
                   {user.name} · <span className="uppercase text-xs font-semibold text-emerald-400">{user.role}</span>
                 </span>
-                <button onClick={() => { setOpen(false); logout(); }} className="text-sm font-medium text-zinc-500">
+                <button
+                  onClick={() => { setOpen(false); logout(); }}
+                  className="text-sm font-medium text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 rounded-md px-3 py-1.5 transition"
+                >
                   Sign out
                 </button>
               </div>

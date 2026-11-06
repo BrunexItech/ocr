@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import LiveScanner, { ScanMode } from "@/components/LiveScanner";
 import Spinner from "@/components/Spinner";
 import { Camera, Check, RotateCcw } from "lucide-react";
+import { humanizeFieldKey } from "@/lib/format";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -123,7 +124,7 @@ function EmbedScanInner() {
           <p className="text-xs text-zinc-500">Review the fields below, then confirm to send them back.</p>
           {fields.map((f) => (
             <div key={f.key} className="space-y-1">
-              <label className="text-xs text-zinc-400 font-mono">{f.key}</label>
+              <label className="text-xs text-zinc-400">{humanizeFieldKey(f.key)}</label>
               <input
                 value={f.value ?? ""}
                 onChange={(e) => updateField(f.key, e.target.value)}

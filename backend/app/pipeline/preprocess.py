@@ -43,8 +43,28 @@ def adaptive_binarize(image: np.ndarray) -> np.ndarray:
     )
 
 
+def auto_white_balance(image: np.ndarray, percentile: float = 1.0) -> np.ndarray:
+    """Removes the color cast real camera photos pick up from ambient lighting
+    (the yellow/orange tint from indoor bulbs, the green tint from fluorescent
+    light) so a white page actually reads as white and colors look true-to-life,
+    not tinted by whatever light it was scanned under. Standard "simplest color
+    balance" algorithm: stretch each color channel independently so its darkest
+    ~1% and brightest ~1% of pixels hit true black/white, instead of leaving
+    everything shifted toward one color. Pure numpy/OpenCV - no extra packages."""
+    if len(image.shape) != 3:
+        return image
+    result = image.astype(np.float32)
+    for c in range(3):
+        channel = result[:, :, c]
+        low, high = np.percentile(channel, (percentile, 100 - percentile))
+        if high > low:
+            result[:, :, c] = np.clip((channel - low) * 255.0 / (high - low), 0, 255)
+    return result.astype(np.uint8)
+
+
 def auto_contrast(image: np.ndarray) -> np.ndarray:
-    lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
+    balanced = auto_white_balance(image) if len(image.shape) == 3 else image
+    lab = cv2.cvtColor(balanced, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     l = clahe.apply(l)
