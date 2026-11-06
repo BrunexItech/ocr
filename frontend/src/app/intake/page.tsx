@@ -6,7 +6,7 @@ import RequireAuth from "@/components/RequireAuth";
 import LiveScanner, { ScanMode } from "@/components/LiveScanner";
 import Spinner from "@/components/Spinner";
 import { api, ApiError, DocumentType } from "@/lib/api";
-import { Camera, CreditCard, FileText, RotateCcw, ScanLine, Upload, X } from "lucide-react";
+import { Camera, Check, CreditCard, FileText, RotateCcw, ScanLine, Upload, X } from "lucide-react";
 
 type Mode = "extract" | "document_only";
 
@@ -15,6 +15,33 @@ const SCAN_CARDS: { mode: ScanMode; label: string; hint: string; icon: typeof Fi
   { mode: "id_card", label: "ID card", hint: "National ID, driver's license", icon: CreditCard },
   { mode: "passport", label: "Passport", hint: "Photo page with MRZ", icon: ScanLine },
 ];
+
+// Show just the document, not the background it was photographed on: once a side
+// is captured, ask the backend to auto-crop/straighten it the same way the real
+// intake pipeline will, and swap the raw preview for that - instead of displaying
+// the untouched photo the camera handed us. Shared by both front and back since
+// either can be captured/retaken independently.
+function useCroppedPreview(src: File | null, setPreviewUrl: (u: string | null) => void, setBusy: (b: boolean) => void) {
+  useEffect(() => {
+    if (!src || !src.type.startsWith("image/")) return;
+    let cancelled = false;
+    queueMicrotask(() => !cancelled && setBusy(true));
+    api
+      .cropPreview(src)
+      .then((blob) => {
+        if (cancelled) return;
+        setPreviewUrl(URL.createObjectURL(blob));
+      })
+      .catch(() => {
+        /* keep whatever preview was already there if cropping fails */
+      })
+      .finally(() => !cancelled && setBusy(false));
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [src]);
+}
 
 function IntakeForm() {
   const router = useRouter();
@@ -29,7 +56,10 @@ function IntakeForm() {
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>("document");
   const [capturingSide, setCapturingSide] = useState<"front" | "back" | "extra">("front");
+  const [previewSide, setPreviewSide] = useState<"front" | "back">("front");
   const [backFile, setBackFile] = useState<File | null>(null);
+  const [backPreview, setBackPreview] = useState<string | null>(null);
+  const [backCropping, setBackCropping] = useState(false);
   const [extraPages, setExtraPages] = useState<File[]>([]);
   const [title, setTitle] = useState("");
   const [cropping, setCropping] = useState(false);
@@ -47,6 +77,7 @@ function IntakeForm() {
     setBackFile(null);
     setExtraPages([]);
     setCapturingSide("front");
+    setPreviewSide("front");
     setResult(null);
     setError("");
     setTypeId("");
@@ -55,42 +86,25 @@ function IntakeForm() {
     setPreview(f && f.type.startsWith("image/") ? URL.createObjectURL(f) : null);
   }
 
-  // Back-of-ID and extra-pages thumbnails: plain object URLs (not run through the
-  // crop-preview endpoint) so adding a page feels instant - the backend still
-  // auto-crops every page for real once the scan is submitted. Derived with
-  // useMemo (not state+effect) since they're pure functions of backFile/extraPages;
-  // a separate effect just revokes the previous URLs once new ones are created.
-  const backPreview = useMemo(() => (backFile ? URL.createObjectURL(backFile) : null), [backFile]);
-  useEffect(() => () => { if (backPreview) URL.revokeObjectURL(backPreview); }, [backPreview]);
-
+  // Extra-page thumbnails: plain object URLs (not run through the crop-preview
+  // endpoint) so adding a page feels instant - the backend still auto-crops every
+  // page for real once the scan is submitted.
   const extraPreviews = useMemo(() => extraPages.map((p) => URL.createObjectURL(p)), [extraPages]);
   useEffect(() => () => extraPreviews.forEach((u) => URL.revokeObjectURL(u)), [extraPreviews]);
 
-  // Show just the document, not the background it was photographed on: once a scan is
-  // captured, ask the backend to auto-crop/straighten it the same way the real intake
-  // pipeline will, and swap the raw preview for that - instead of displaying the
-  // untouched photo the camera handed us.
-  useEffect(() => {
-    if (!file || !file.type.startsWith("image/")) return;
-    let cancelled = false;
-    queueMicrotask(() => !cancelled && setCropping(true));
-    api
-      .cropPreview(file)
-      .then((blob) => {
-        if (cancelled) return;
-        setPreview((prev) => {
-          if (prev) URL.revokeObjectURL(prev);
-          return URL.createObjectURL(blob);
-        });
-      })
-      .catch(() => {
-        /* keep the raw preview if cropping fails - still better than nothing */
-      })
-      .finally(() => !cancelled && setCropping(false));
-    return () => {
-      cancelled = true;
-    };
-  }, [file]);
+  useCroppedPreview(file, (url) => {
+    setPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+  }, setCropping);
+
+  useCroppedPreview(backFile, (url) => {
+    setBackPreview((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return url;
+    });
+  }, setBackCropping);
 
   async function submit(mode: Mode) {
     if (!file || busyMode) return;
@@ -129,6 +143,7 @@ function IntakeForm() {
             setScannerOpen(false);
             if (scanMode === "id_card" && capturingSide === "back") {
               setBackFile(f);
+              setPreviewSide("back");
             } else if (capturingSide === "extra") {
               setExtraPages((prev) => [...prev, f]);
             } else {
@@ -197,23 +212,71 @@ function IntakeForm() {
             </div>
           </>
         ) : (
-          <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-black relative">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preview} alt="Preview" className={`w-full max-h-[380px] object-contain transition ${cropping ? "opacity-40 blur-[1px]" : ""}`} />
-            {cropping && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30">
-                <Spinner className="w-7 h-7" light />
-                <p className="text-xs text-white/80">Trimming to the document…</p>
+          <div className="space-y-2.5">
+            {needsBackSide && (
+              <div className="inline-flex p-1 rounded-full bg-zinc-900 border border-zinc-800 gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPreviewSide("front")}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${
+                    previewSide === "front" ? "bg-emerald-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                  }`}
+                >
+                  Front
+                </button>
+                <button
+                  type="button"
+                  onClick={() => backFile && setPreviewSide("back")}
+                  disabled={!backFile}
+                  className={`px-4 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${
+                    previewSide === "back" ? "bg-emerald-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                  } ${!backFile ? "opacity-40 cursor-not-allowed" : ""}`}
+                >
+                  Back
+                  {backFile && <Check className="w-3.5 h-3.5" />}
+                </button>
               </div>
             )}
-            <button
-              type="button"
-              onClick={() => pickFile(null)}
-              className="absolute top-3 right-3 bg-zinc-900/90 hover:bg-zinc-900 rounded-full p-1.5 shadow"
-              aria-label="Remove"
-            >
-              <X className="w-4 h-4 text-zinc-300" />
-            </button>
+
+            <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-black relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={previewSide === "back" ? backPreview || "" : preview}
+                alt={previewSide === "back" ? "Back side preview" : "Preview"}
+                className={`w-full max-h-[380px] object-contain transition ${
+                  (previewSide === "back" ? backCropping : cropping) ? "opacity-40 blur-[1px]" : ""
+                }`}
+              />
+              {(previewSide === "back" ? backCropping : cropping) && (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/30">
+                  <Spinner className="w-7 h-7" light />
+                  <p className="text-xs text-white/80">Trimming to the document…</p>
+                </div>
+              )}
+              <div className="absolute top-3 right-3 flex items-center gap-2">
+                {needsBackSide && backFile && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCapturingSide(previewSide);
+                      setScannerOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 bg-zinc-900/90 hover:bg-zinc-900 rounded-full pl-3 pr-3.5 py-1.5 text-xs font-semibold text-zinc-200 shadow transition"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Retake {previewSide === "front" ? "Front" : "Back"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => pickFile(null)}
+                  className="bg-zinc-900/90 hover:bg-zinc-900 rounded-full p-2 shadow transition"
+                  aria-label="Remove"
+                >
+                  <X className="w-4 h-4 text-zinc-300" />
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -224,55 +287,33 @@ function IntakeForm() {
           </div>
         )}
 
-        {file && needsBackSide && !result && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 flex items-center justify-between gap-3">
-            {backFile ? (
-              <>
-                <div className="flex items-center gap-3 min-w-0">
-                  {backPreview && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={backPreview} alt="Back side preview" className="w-12 h-12 rounded-lg object-cover border border-zinc-700 shrink-0" />
-                  )}
-                  <span className="text-sm text-emerald-400 flex items-center gap-2">
-                    <RotateCcw className="w-4 h-4 shrink-0" />
-                    Back side captured
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCapturingSide("back");
-                    setScannerOpen(true);
-                  }}
-                  className="text-xs font-medium text-zinc-400 hover:text-zinc-200 underline shrink-0"
-                >
-                  Retake
-                </button>
-              </>
-            ) : (
-              <>
-                <span className="text-sm text-zinc-300">ID cards need the back scanned too</span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setCapturingSide("back");
-                    setScannerOpen(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-1.5 text-xs font-semibold hover:bg-emerald-700 transition whitespace-nowrap"
-                >
-                  <Camera className="w-3.5 h-3.5" />
-                  Scan back
-                </button>
-              </>
-            )}
+        {file && needsBackSide && !backFile && !result && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5">
+            <span className="text-sm text-amber-300">ID cards need the back scanned too</span>
+            <button
+              type="button"
+              onClick={() => {
+                setCapturingSide("back");
+                setScannerOpen(true);
+              }}
+              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-2 text-xs font-semibold hover:bg-emerald-700 active:scale-95 transition whitespace-nowrap shadow-sm"
+            >
+              <Camera className="w-3.5 h-3.5" />
+              Scan back
+            </button>
           </div>
         )}
 
         {file && supportsMultiPage && !result && (
           <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-zinc-300">
-                {extraPages.length > 0 ? `${extraPages.length + 1} pages scanned` : "Multi-page document?"}
+              <span className="text-sm text-zinc-300 flex items-center gap-2">
+                {extraPages.length > 0 && (
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-bold shrink-0">
+                    {extraPages.length + 1}
+                  </span>
+                )}
+                {extraPages.length > 0 ? "pages scanned" : "Multi-page document?"}
               </span>
               <button
                 type="button"
@@ -280,7 +321,7 @@ function IntakeForm() {
                   setCapturingSide("extra");
                   setScannerOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-1.5 text-xs font-semibold hover:bg-emerald-700 transition whitespace-nowrap"
+                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-2 text-xs font-semibold hover:bg-emerald-700 active:scale-95 transition whitespace-nowrap shadow-sm"
               >
                 <Camera className="w-3.5 h-3.5" />
                 {extraPages.length > 0 ? "Add another page" : "Add a page"}
@@ -362,19 +403,39 @@ function IntakeForm() {
 
         {error && <p className="text-sm text-red-400">{error}</p>}
         {result && (
-          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4 text-sm text-emerald-400">
-            <p className="font-medium mb-1">
-              Detected: {result.detectedKind} · <span className="font-mono">{result.tracking_no}</span>
-            </p>
-            <p className="text-emerald-400">
-              Status: {result.status.replace("_", " ")}
-              {result.confidence != null && ` · ${(result.confidence * 100).toFixed(0)}% confidence`}
-            </p>
-            <div className="flex gap-3 mt-3">
-              <button type="button" className="underline font-medium" onClick={() => router.push("/documents")}>
+          <div className="rounded-2xl bg-zinc-900 border border-emerald-500/30 p-5 card-float">
+            <div className="flex items-start gap-3 mb-4">
+              <span className="w-10 h-10 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
+                <Check className="w-5 h-5" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-semibold text-zinc-100">{result.detectedKind}</p>
+                <p className="text-xs text-zinc-500 font-mono mt-0.5">{result.tracking_no}</p>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 mb-4">
+              <span className="inline-flex items-center rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium px-2.5 py-1">
+                {result.status.replace("_", " ")}
+              </span>
+              {result.confidence != null && (
+                <span className="inline-flex items-center rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium px-2.5 py-1">
+                  {(result.confidence * 100).toFixed(0)}% confidence
+                </span>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => router.push("/documents")}
+                className="flex-1 rounded-lg bg-emerald-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-emerald-700 active:scale-[0.98] transition shadow-sm"
+              >
                 View in queue
               </button>
-              <button type="button" className="underline font-medium" onClick={() => pickFile(null)}>
+              <button
+                type="button"
+                onClick={() => pickFile(null)}
+                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-200 px-4 py-2.5 text-sm font-semibold hover:bg-zinc-800 active:scale-[0.98] transition"
+              >
                 Scan another
               </button>
             </div>
