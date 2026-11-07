@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api";
 import Spinner from "@/components/Spinner";
-import { ScanLine, CheckCircle2, IdCard } from "lucide-react";
+import { ScanLine, CheckCircle2, IdCard, Receipt, FileText, GraduationCap } from "lucide-react";
+
+const ROTATING = [
+  { word: "IDs & passports", Icon: IdCard },
+  { word: "invoices & receipts", Icon: Receipt },
+  { word: "contracts & forms", Icon: FileText },
+  { word: "certificates & records", Icon: GraduationCap },
+];
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -13,6 +20,13 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [rotIndex, setRotIndex] = useState(0);
+
+  useEffect(() => {
+    const t = setInterval(() => setRotIndex((i) => (i + 1) % ROTATING.length), 2400);
+    return () => clearInterval(t);
+  }, []);
+  const { word: rotWord, Icon: RotIcon } = ROTATING[rotIndex];
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -40,14 +54,19 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 max-w-md">
-          <h1 className="text-4xl font-semibold leading-tight mb-5">Scan it.<br />Read it.<br />Trust it.</h1>
-          <p className="text-emerald-50/80 text-lg leading-relaxed mb-12">
+          <h1 className="text-4xl font-semibold leading-tight mb-5">Built to read<br />your documents</h1>
+          <p className="text-emerald-50/80 text-lg leading-relaxed mb-3">
             Point a camera at any document and get accurate, structured data back in seconds.
           </p>
+          <div key={rotIndex} className="word-rotate flex items-center gap-2 text-emerald-200 font-medium mb-12 h-6">
+            <RotIcon className="w-4 h-4" />
+            {rotWord}
+          </div>
 
-          {/* One clean, uncluttered scan-result mockup */}
-          <div className="bg-white/[0.07] backdrop-blur-sm border border-white/15 rounded-2xl p-6 shadow-2xl card-float">
-            <div className="flex items-center gap-3 mb-5">
+          {/* Animated scan-result mockup: a sweep line "reads" the card on a loop */}
+          <div className="relative bg-white/[0.07] backdrop-blur-sm border border-white/15 rounded-2xl p-6 shadow-2xl card-float overflow-hidden">
+            <div aria-hidden className="scan-sweep absolute left-0 right-0 h-20 bg-gradient-to-b from-transparent via-emerald-300/20 to-transparent pointer-events-none" />
+            <div className="flex items-center gap-3 mb-5 relative z-10">
               <div className="w-11 h-14 rounded-lg bg-gradient-to-br from-white/25 to-white/5 border border-white/20 flex-shrink-0 flex items-center justify-center">
                 <IdCard className="w-5 h-5 text-white/80" />
               </div>
@@ -60,7 +79,7 @@ export default function LoginPage() {
                 98%
               </span>
             </div>
-            <div className="space-y-2.5">
+            <div className="space-y-2.5 relative z-10">
               {[
                 ["Full name", "J. Mwangi"],
                 ["Date of birth", "1994-02-11"],

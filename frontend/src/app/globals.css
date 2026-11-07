@@ -53,6 +53,26 @@ body {
   border-color: #3a3a40;
 }
 
+@keyframes scan-sweep {
+  0% { transform: translateY(-110%); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: translateY(110%); opacity: 0; }
+}
+.scan-sweep {
+  animation: scan-sweep 2.8s ease-in-out infinite;
+}
+
+@keyframes word-rotate-in {
+  0% { opacity: 0; transform: translateY(6px); }
+  10% { opacity: 1; transform: translateY(0); }
+  90% { opacity: 1; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-6px); }
+}
+.word-rotate {
+  animation: word-rotate-in 2.4s ease-in-out;
+}
+
 .surface {
   background: var(--surface);
   border-color: var(--line);
