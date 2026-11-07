@@ -226,21 +226,27 @@ function DocumentDetail() {
             Reject
           </button>
         )}
-        {doc.status !== "approved" && !doc.locked && ["admin", "intake", "reviewer", "approver"].includes(user?.role || "") && (
-          <button
-            disabled={busy}
-            onClick={() => {
-              if (!window.confirm("Delete this scan permanently? This can't be undone.")) return;
-              withBusy(async () => {
-                await api.deleteDocument(doc.id);
-                router.push("/documents");
-              });
-            }}
-            className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-red-400 hover:border-red-500/40 px-4 py-2 text-sm font-medium"
-          >
-            Delete
-          </button>
-        )}
+        {(doc.status !== "approved" || user?.role === "admin") &&
+          (!doc.locked || user?.role === "admin") &&
+          ["admin", "intake", "reviewer", "approver"].includes(user?.role || "") && (
+            <button
+              disabled={busy}
+              onClick={() => {
+                const msg =
+                  doc.status === "approved"
+                    ? "This document is approved and locked. Delete it permanently anyway? This can't be undone."
+                    : "Delete this scan permanently? This can't be undone.";
+                if (!window.confirm(msg)) return;
+                withBusy(async () => {
+                  await api.deleteDocument(doc.id);
+                  router.push("/documents");
+                });
+              }}
+              className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-red-400 hover:border-red-500/40 px-4 py-2 text-sm font-medium"
+            >
+              Delete
+            </button>
+          )}
       </div>
 
       {doc.status === "approved" && ["admin", "approver"].includes(user?.role || "") && (

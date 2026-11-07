@@ -302,18 +302,22 @@ def delete_document(doc_id: str, db: Session = Depends(get_db),
                      user: User = Depends(require_roles(Role.admin, Role.intake, Role.reviewer, Role.approver))):
     """A saved-but-not-yet-accepted scan (anything short of approved) can be thrown
     away outright - no point making someone reject-then-live-with a mis-scan forever
-    when they never meant to keep it in the first place."""
+    when they never meant to keep it in the first place. An approved/locked record is
+    normally protected (it's meant to be the durable, audited outcome) - only an admin
+    can override that, and doing so is recorded explicitly in the audit trail."""
     doc = db.get(Document, doc_id)
     if not doc:
         raise HTTPException(404, "Document not found")
-    if doc.status == "approved":
-        raise HTTPException(409, "Approved documents can't be deleted - reject it first if it shouldn't be kept")
-    if doc.locked:
+    if doc.status == "approved" and user.role != Role.admin:
+        raise HTTPException(409, "Approved documents can only be deleted by an admin")
+    if doc.locked and user.role != Role.admin:
         raise HTTPException(409, "Document is locked; an admin must unlock it first")
 
     file_path, file_name, status_was = doc.file_path, doc.file_name, doc.status
-    record(db, user=user.name, role=user.role, action="document.delete", document_id=doc.id,
-           detail=f"Deleted {file_name} (status was {status_was})")
+    detail = f"Deleted {file_name} (status was {status_was})"
+    if status_was == "approved":
+        detail += " [admin override of approved/locked record]"
+    record(db, user=user.name, role=user.role, action="document.delete", document_id=doc.id, detail=detail)
     db.delete(doc)
     db.commit()
     Path(file_path).unlink(missing_ok=True)
