@@ -36,11 +36,7 @@ function IntegrationsAdmin() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-1">Integrations</h1>
-      <p className="text-sm text-blue-100/45 mb-6">
-        Destinations that approved records can push selected fields to — a webhook into your own database or
-        another system. This is the &quot;select what you want fed into the database&quot; step.
-      </p>
+      <h1 className="text-xl font-semibold mb-6">Integrations</h1>
 
       <div className="bg-white/[0.04] border border-white/10 rounded-lg overflow-hidden overflow-x-auto mb-6">
         <table className="w-full text-sm min-w-[560px]">

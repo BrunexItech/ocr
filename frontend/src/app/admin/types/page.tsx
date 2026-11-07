@@ -95,11 +95,7 @@ function TypesAdmin() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-1">Document types</h1>
-      <p className="text-sm text-blue-100/45 mb-6">
-        Fully configurable schemas — this is what makes the same OCR pipeline work for a school, a hospital, a
-        fintech KYC desk, or any other domain without changing code.
-      </p>
+      <h1 className="text-xl font-semibold mb-6">Document types</h1>
 
       <div className="bg-white/[0.04] border border-white/10 rounded-xl overflow-hidden mb-6 shadow-sm">
         {types.length > 0 && (
@@ -138,10 +134,7 @@ function TypesAdmin() {
       </div>
 
       <form onSubmit={onSubmit} className="bg-white/[0.04] border border-white/10 rounded-xl p-5 sm:p-6 space-y-6 shadow-sm">
-        <div>
-          <h2 className="text-sm font-semibold text-white">New document type</h2>
-          <p className="text-xs text-blue-100/45 mt-0.5">Define the schema once — every scan of this type extracts these fields automatically.</p>
-        </div>
+        <h2 className="text-sm font-semibold text-white">New document type</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input className="rounded-lg border border-white/15 bg-white/[0.03] text-white placeholder-blue-100/40 px-3 py-2.5 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 outline-none transition" placeholder="Code (e.g. INVOICE)" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required />

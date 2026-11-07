@@ -44,12 +44,7 @@ function ServiceAccountsAdmin() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-1">Service accounts</h1>
-      <p className="text-sm text-blue-100/45 mb-6">
-        API keys for other systems (e.g. sports.oqtekal.com) to call the zone-mode OCR endpoint directly, without a
-        human login. A key can only call <code className="text-blue-100/60">ocr-zones</code> and{" "}
-        <code className="text-blue-100/60">zones-health</code> — nothing else.
-      </p>
+      <h1 className="text-xl font-semibold mb-6">Service accounts</h1>
 
       {newKey && (
         <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/30 p-4 mb-6">

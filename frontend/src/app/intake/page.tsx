@@ -51,7 +51,6 @@ function IntakeForm() {
   const [preview, setPreview] = useState<string | null>(null);
   const [busyMode, setBusyMode] = useState<Mode | null>(null);
   const [error, setError] = useState("");
-  const [result, setResult] = useState<{ tracking_no: string; status: string; confidence: number | null; detectedKind: string } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
   const [scanMode, setScanMode] = useState<ScanMode>("document");
@@ -78,7 +77,6 @@ function IntakeForm() {
     setExtraPages([]);
     setCapturingSide("front");
     setPreviewSide("front");
-    setResult(null);
     setError("");
     setTypeId("");
     setTitle("");
@@ -110,7 +108,6 @@ function IntakeForm() {
     if (!file || busyMode) return;
     setBusyMode(mode);
     setError("");
-    setResult(null);
     try {
       const doc = await api.intake(
         file,
@@ -120,7 +117,8 @@ function IntakeForm() {
         backFile || undefined,
         extraPages
       );
-      setResult({ tracking_no: doc.tracking_no, status: doc.status, confidence: doc.ocr_confidence, detectedKind: doc.detected_kind });
+      router.push(`/documents/${doc.id}`);
+      return;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
     } finally {
@@ -130,11 +128,7 @@ function IntakeForm() {
 
   return (
     <div className="max-w-xl mx-auto">
-      <h1 className="text-xl font-semibold mb-1">Scan a document</h1>
-      <p className="text-sm text-blue-100/45 mb-6">
-        Point your camera at a document — it captures automatically once the edges are detected and steady,
-        or tap the shutter yourself anytime.
-      </p>
+      <h1 className="text-xl font-semibold mb-6">Scan a document</h1>
 
       {scannerOpen && (
         <LiveScanner
@@ -287,7 +281,7 @@ function IntakeForm() {
           </div>
         )}
 
-        {file && needsBackSide && !backFile && !result && (
+        {file && needsBackSide && !backFile && (
           <div className="flex items-center justify-between gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3.5">
             <span className="text-sm text-amber-300">ID cards need the back scanned too</span>
             <button
@@ -304,7 +298,7 @@ function IntakeForm() {
           </div>
         )}
 
-        {file && supportsMultiPage && !result && (
+        {file && supportsMultiPage && (
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5 space-y-3">
             <div className="flex items-center justify-between gap-3">
               <span className="text-sm text-blue-100/80 flex items-center gap-2">
@@ -351,7 +345,7 @@ function IntakeForm() {
           </div>
         )}
 
-        {file && !result && (
+        {file && (
           <>
             <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 card-float">
               <label className="block text-sm font-medium text-blue-100/80 mb-1.5">Name this scan</label>
@@ -408,45 +402,6 @@ function IntakeForm() {
         )}
 
         {error && <p className="text-sm text-red-400">{error}</p>}
-        {result && (
-          <div className="rounded-2xl bg-white/[0.04] border border-emerald-500/30 p-5 card-float">
-            <div className="flex items-start gap-3 mb-4">
-              <span className="w-10 h-10 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
-                <Check className="w-5 h-5" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-semibold text-white">{result.detectedKind}</p>
-                <p className="text-xs text-blue-100/45 font-mono mt-0.5">{result.tracking_no}</p>
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2 mb-4">
-              <span className="inline-flex items-center rounded-full bg-emerald-500/10 text-emerald-400 text-xs font-medium px-2.5 py-1">
-                {result.status.replace("_", " ")}
-              </span>
-              {result.confidence != null && (
-                <span className="inline-flex items-center rounded-full bg-white/10 text-blue-100/60 text-xs font-medium px-2.5 py-1">
-                  {(result.confidence * 100).toFixed(0)}% confidence
-                </span>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => router.push("/documents")}
-                className="flex-1 rounded-lg bg-blue-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
-              >
-                View in queue
-              </button>
-              <button
-                type="button"
-                onClick={() => pickFile(null)}
-                className="flex-1 rounded-lg border border-white/15 bg-white/[0.04] text-white px-4 py-2.5 text-sm font-semibold hover:bg-white/10 active:scale-[0.98] transition"
-              >
-                Scan another
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

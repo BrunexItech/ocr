@@ -100,10 +100,7 @@ function ZoneTool() {
     <div className="max-w-4xl">
       <h1 className="text-xl font-semibold mb-1">Zone template tool</h1>
       <p className="text-sm text-blue-100/45 mb-6">
-        Upload a real scan, drag to draw a box over each field, name it, then copy the JSON straight into a{" "}
-        <code className="text-blue-100/60">POST /api/documents/ocr-zones</code> request. Coordinates are in pixels of{" "}
-        <b>this exact uploaded image</b> — no cropping or straightening is applied before you draw, so what you
-        see here is the coordinate space the API expects.
+        Draw a box over each field, then copy the JSON into a <code className="text-blue-100/60">POST /api/documents/ocr-zones</code> request.
       </p>
 
       {!imageUrl ? (

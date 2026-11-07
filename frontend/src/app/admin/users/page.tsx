@@ -41,11 +41,7 @@ function UsersAdmin() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold mb-1">Users</h1>
-      <p className="text-sm text-blue-100/45 mb-6">
-        Role-based access control: intake registers scans, reviewer corrects, approver signs off and locks, admin
-        manages the system.
-      </p>
+      <h1 className="text-xl font-semibold mb-6">Users</h1>
 
       <div className="bg-white/[0.04] border border-white/10 rounded-lg overflow-hidden overflow-x-auto mb-6">
         <table className="w-full text-sm min-w-[560px]">

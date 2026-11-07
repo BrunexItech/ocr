@@ -25,10 +25,7 @@ function AuditAdmin() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-        <div>
-          <h1 className="text-xl font-semibold mb-1">Audit trail</h1>
-          <p className="text-sm text-blue-100/45">Hash-chained, tamper-evident log of every action in the system.</p>
-        </div>
+        <h1 className="text-xl font-semibold">Audit trail</h1>
         <button onClick={onVerify} disabled={busy} className="rounded-lg bg-white/10 text-white px-5 py-2.5 text-sm font-semibold hover:bg-white/20 active:scale-[0.97] transition shadow-sm disabled:opacity-50 self-start sm:self-auto whitespace-nowrap">
           {busy ? "Verifying…" : "Verify chain integrity"}
         </button>
