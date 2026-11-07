@@ -24,6 +24,7 @@ export default function NavBar() {
 
   if (loading) return null;
   if (pathname?.startsWith("/embed")) return null; // embedded widget: no app chrome, just the scanner itself
+  if (pathname === "/login" || pathname === "/register") return null; // full-bleed landing-style auth screens
   const links = user ? LINKS.filter((l) => l.roles.includes(user.role)) : [];
 
   return (
