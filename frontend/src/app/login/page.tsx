@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api";
 import Spinner from "@/components/Spinner";
-import { ScanLine } from "lucide-react";
+import { ScanLine, CheckCircle2, IdCard, Receipt, Layers, Webhook } from "lucide-react";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -29,21 +29,68 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-[calc(100vh-56px)] grid lg:grid-cols-2">
-      <div className="hidden lg:flex flex-col justify-between brand-grad text-white p-12">
-        <div className="flex items-center gap-2 font-semibold text-lg">
+      <div className="hidden lg:flex flex-col justify-between brand-grad text-white p-12 relative overflow-hidden">
+        <div aria-hidden className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/5 blur-3xl" />
+        <div aria-hidden className="absolute bottom-0 -left-20 w-72 h-72 rounded-full bg-black/10 blur-3xl" />
+
+        <div className="flex items-center gap-2 font-semibold text-lg relative z-10">
           <span className="w-8 h-8 rounded-lg bg-zinc-900/15 flex items-center justify-center">
             <ScanLine className="w-4.5 h-4.5" />
           </span>
           Oqtekal OCR
         </div>
-        <div>
+
+        <div className="relative z-10">
           <h1 className="text-3xl font-semibold leading-tight mb-3">Scan it. Read it. Trust it.</h1>
-          <p className="text-emerald-50/90 max-w-md">
+          <p className="text-emerald-50/90 max-w-md mb-8">
             Point a camera at any document and get accurate, structured data back in seconds — invoices,
             receipts, IDs, passports, and anything else you teach it to recognise.
           </p>
+
+          {/* Live-looking scan result mockup */}
+          <div className="bg-white/10 backdrop-blur-sm border border-white/15 rounded-2xl p-4 shadow-xl max-w-sm card-float">
+            <div className="flex items-center justify-between mb-3">
+              <span className="inline-flex items-center gap-1.5 text-xs font-medium bg-emerald-400/20 text-emerald-200 rounded-full px-2.5 py-1">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                Approved
+              </span>
+              <span className="text-xs text-emerald-50/70 font-mono">98% confidence</span>
+            </div>
+            <div className="flex gap-3">
+              <div className="w-16 h-20 rounded-lg bg-gradient-to-br from-white/25 to-white/5 border border-white/20 flex-shrink-0 flex items-center justify-center">
+                <IdCard className="w-6 h-6 text-white/70" />
+              </div>
+              <div className="flex-1 space-y-1.5">
+                {[
+                  ["Full name", "J. Mwangi"],
+                  ["ID number", "3754178••"],
+                  ["Date of birth", "1994-02-11"],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex items-center justify-between text-xs bg-black/15 rounded-md px-2.5 py-1.5">
+                    <span className="text-emerald-50/60">{label}</span>
+                    <span className="font-medium text-white">{value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap gap-2 mt-5">
+            {[
+              { Icon: IdCard, label: "IDs & passports" },
+              { Icon: Receipt, label: "Invoices & receipts" },
+              { Icon: Layers, label: "Multi-page scans" },
+              { Icon: Webhook, label: "API & embeddable widget" },
+            ].map(({ Icon, label }) => (
+              <span key={label} className="inline-flex items-center gap-1.5 text-xs text-emerald-50/80 bg-white/10 border border-white/10 rounded-full px-3 py-1.5">
+                <Icon className="w-3.5 h-3.5" />
+                {label}
+              </span>
+            ))}
+          </div>
         </div>
-        <p className="text-xs text-emerald-50/70">Secure, private infrastructure — your data stays under your control</p>
+
+        <p className="text-xs text-emerald-50/70 relative z-10">Secure, private infrastructure — your data stays under your control</p>
       </div>
 
       <div className="flex items-center justify-center p-6">
