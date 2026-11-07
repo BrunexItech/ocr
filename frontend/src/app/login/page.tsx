@@ -43,7 +43,7 @@ export default function LoginPage() {
             receipts, IDs, passports, and anything else you teach it to recognise.
           </p>
         </div>
-        <p className="text-xs text-emerald-50/70">Open-source · self-hosted · no data leaves your server</p>
+        <p className="text-xs text-emerald-50/70">Secure, private infrastructure — your data stays under your control</p>
       </div>
 
       <div className="flex items-center justify-center p-6">

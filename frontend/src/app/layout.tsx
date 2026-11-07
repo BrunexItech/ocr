@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Oqtekal OCR",
-  description: "Open-source, self-hosted OCR: scan, extract, review, approve, push to a database.",
+  description: "Scan documents and extract accurate, structured data in seconds — review, approve, and send it anywhere.",
   manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "default", title: "Oqtekal" },
   icons: { icon: "/icon-192.png", apple: "/icon-192.png" },
