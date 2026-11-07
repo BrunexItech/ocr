@@ -1,15 +1,16 @@
 @import "tailwindcss";
 
 :root {
-  --background: #121214;
-  --surface: #1c1c1f;
-  --surface-2: #232327;
-  --foreground: #f3f4f6;
-  --muted: #9a9aa2;
-  --brand: #12d992;
-  --brand-dark: #0ea876;
-  --brand-50: rgba(18, 217, 146, 0.12);
-  --line: #2b2b30;
+  --background: #0a1430;
+  --surface: #0d1b3f;
+  --surface-2: #122554;
+  --foreground: #f1f5f9;
+  --muted: #8ba0c9;
+  --brand: #2563eb;
+  --brand-dark: #1d4ed8;
+  --brand-50: rgba(37, 99, 235, 0.14);
+  --accent: #38bdf8;
+  --line: #1e3a6e;
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.4);
   --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.55);
@@ -50,6 +51,13 @@ body {
 
 .brand-grad {
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
+}
+
+.app-shell-bg {
+  background:
+    radial-gradient(900px 500px at 15% -5%, rgba(37, 99, 235, 0.25), transparent 60%),
+    radial-gradient(700px 500px at 100% 0%, rgba(56, 189, 248, 0.12), transparent 60%),
+    var(--background);
 }
 
 .card-float {
