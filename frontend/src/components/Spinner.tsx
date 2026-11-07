@@ -4,7 +4,7 @@ export default function Spinner({ className = "w-5 h-5", light = false }: { clas
   // Unique per mount so multiple spinners on one page don't collide on the same
   // gradient id - svg <defs> ids are global to the document, not scoped per-icon.
   const gradientId = `spinner-grad-${(gradientSeq++).toString(36)}`;
-  const color = light ? "#ffffff" : "#10b981"; // emerald-500, matches the brand accent
+  const color = light ? "#ffffff" : "#2563eb"; // blue-600, matches the brand accent
 
   return (
     <span className={`inline-flex items-center justify-center ${className}`} role="status" aria-label="Loading">
