@@ -13,5 +13,5 @@ export default function Home() {
     router.replace(user ? "/documents" : "/login");
   }, [user, loading, router]);
 
-  return <p className="text-sm text-zinc-500">Loading…</p>;
+  return <p className="text-sm text-blue-100/60">Loading…</p>;
 }

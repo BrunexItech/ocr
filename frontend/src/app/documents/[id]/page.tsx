@@ -77,7 +77,7 @@ function DocumentDetail() {
 
   return (
     <div className="max-w-3xl mx-auto">
-      <button onClick={() => router.push("/documents")} className="text-sm text-zinc-500 hover:text-zinc-200 mb-3 py-2 -my-2">
+      <button onClick={() => router.push("/documents")} className="text-sm text-blue-100/45 hover:text-white mb-3 py-2 -my-2">
         ← Back to documents
       </button>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
@@ -93,12 +93,12 @@ function DocumentDetail() {
                   if (e.key === "Escape") setEditingTitle(false);
                 }}
                 placeholder="Name this document"
-                className="text-xl font-semibold bg-zinc-900 border border-zinc-700 rounded-md px-2 py-1 text-zinc-100 placeholder-zinc-500 w-full"
+                className="text-xl font-semibold bg-white/[0.04] border border-white/15 rounded-md px-2 py-1 text-white placeholder-blue-100/40 w-full"
               />
               <button onClick={saveTitle} disabled={busy} className="p-2.5 text-emerald-400 hover:text-emerald-300" aria-label="Save name">
                 <Check className="w-5 h-5" />
               </button>
-              <button onClick={() => setEditingTitle(false)} className="p-2.5 text-zinc-500 hover:text-zinc-300" aria-label="Cancel">
+              <button onClick={() => setEditingTitle(false)} className="p-2.5 text-blue-100/45 hover:text-blue-100/80" aria-label="Cancel">
                 <XIcon className="w-5 h-5" />
               </button>
             </div>
@@ -111,18 +111,18 @@ function DocumentDetail() {
               }}
             >
               {doc.title || <span className="font-mono">{doc.tracking_no}</span>}
-              <Pencil className="w-4 h-4 text-zinc-500 opacity-0 group-hover:opacity-100 transition shrink-0" />
+              <Pencil className="w-4 h-4 text-blue-100/45 opacity-0 group-hover:opacity-100 transition shrink-0" />
             </h1>
           )}
-          <p className="text-sm text-zinc-500 mt-1">
+          <p className="text-sm text-blue-100/45 mt-1">
             {doc.title && <span className="font-mono">{doc.tracking_no}</span>}{doc.title && " · "}
             {doc.detected_kind} · {doc.file_name} · {doc.status.replace("_", " ")} · confidence{" "}
             {doc.ocr_confidence != null ? `${(doc.ocr_confidence * 100).toFixed(0)}%` : "—"}
-            {doc.locked && <span className="ml-2 text-zinc-500">· locked</span>}
+            {doc.locked && <span className="ml-2 text-blue-100/45">· locked</span>}
           </p>
         </div>
         <button
-          className="text-sm rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-4 py-2 hover:bg-zinc-800 self-start sm:self-auto whitespace-nowrap"
+          className="text-sm rounded-md border border-white/15 bg-white/[0.04] text-white placeholder-blue-100/40 px-4 py-2 hover:bg-white/10 self-start sm:self-auto whitespace-nowrap"
           onClick={() => withBusy(() => api.downloadOriginal(doc.id, doc.file_name))}
         >
           Download original
@@ -137,15 +137,15 @@ function DocumentDetail() {
       {error && <div className="rounded-md bg-red-500/10 border border-red-500/30 p-3 text-sm text-red-400 mb-4">{error}</div>}
       {notice && <div className="rounded-md bg-emerald-500/10 border border-emerald-500/30 p-3 text-sm text-emerald-400 mb-4">{notice}</div>}
 
-      <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-black mb-4 max-h-[420px]">
+      <div className="rounded-2xl overflow-hidden border border-white/10 bg-black mb-4 max-h-[420px]">
         <DocThumb docId={doc.id} fit="contain" className="w-full max-h-[420px]" />
       </div>
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 mb-4">
+      <div className="bg-white/[0.04] border border-white/10 rounded-lg p-5 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold text-zinc-300">Extracted fields</h2>
+          <h2 className="text-sm font-semibold text-blue-100/80">Extracted fields</h2>
           {(user?.role === "admin" || user?.role === "approver") && (
-            <label className="flex items-center gap-2 text-xs text-zinc-500">
+            <label className="flex items-center gap-2 text-xs text-blue-100/45">
               <input type="checkbox" checked={reveal} onChange={(e) => setReveal(e.target.checked)} />
               Reveal sensitive fields
             </label>
@@ -154,25 +154,25 @@ function DocumentDetail() {
         <div className="space-y-3">
           {Object.entries(draft).map(([key, value]) => (
             <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-3 sm:items-center">
-              <label className="text-sm text-zinc-400 sm:col-span-1">
+              <label className="text-sm text-blue-100/60 sm:col-span-1">
                 {humanizeFieldKey(key)}
                 {doc.field_confidence[key] != null && (
-                  <span className="block text-xs text-zinc-500">{(doc.field_confidence[key] * 100).toFixed(0)}% confidence</span>
+                  <span className="block text-xs text-blue-100/45">{(doc.field_confidence[key] * 100).toFixed(0)}% confidence</span>
                 )}
               </label>
               <input
-                className="sm:col-span-2 rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-1.5 text-sm disabled:bg-zinc-800 disabled:text-zinc-500"
+                className="sm:col-span-2 rounded-md border border-white/15 bg-white/[0.04] text-white placeholder-blue-100/40 px-3 py-1.5 text-sm disabled:bg-white/10 disabled:text-blue-100/45"
                 value={String(value ?? "")}
                 disabled={!canEdit}
                 onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
               />
             </div>
           ))}
-          {Object.keys(draft).length === 0 && <p className="text-sm text-zinc-500">No fields extracted.</p>}
+          {Object.keys(draft).length === 0 && <p className="text-sm text-blue-100/45">No fields extracted.</p>}
         </div>
 
         {canEdit && (
-          <div className="flex gap-2 mt-4 pt-4 border-t border-zinc-800">
+          <div className="flex gap-2 mt-4 pt-4 border-t border-white/10">
             <button
               disabled={!dirty || busy}
               onClick={() =>
@@ -183,14 +183,14 @@ function DocumentDetail() {
                   setNotice("Corrections saved as a new version.");
                 })
               }
-              className="rounded-md bg-zinc-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-40"
+              className="rounded-md bg-white/10 text-white px-4 py-2 text-sm font-medium disabled:opacity-40"
             >
               Save corrections
             </button>
             <button
               disabled={!dirty || busy}
               onClick={() => setDraft(doc.fields)}
-              className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-4 py-2 text-sm disabled:opacity-40"
+              className="rounded-md border border-white/15 bg-white/[0.04] text-white placeholder-blue-100/40 px-4 py-2 text-sm disabled:opacity-40"
             >
               Discard
             </button>
@@ -203,7 +203,7 @@ function DocumentDetail() {
           <button
             disabled={busy}
             onClick={() => withBusy(async () => setDoc(await api.submitDocument(doc.id)))}
-            className="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium"
+            className="rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium"
           >
             Submit for approval
           </button>
@@ -212,7 +212,7 @@ function DocumentDetail() {
           <button
             disabled={busy}
             onClick={() => withBusy(async () => setDoc(await api.approveDocument(doc.id)))}
-            className="rounded-md bg-emerald-600 text-white px-4 py-2 text-sm font-medium"
+            className="rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium"
           >
             Approve & lock
           </button>
@@ -242,7 +242,7 @@ function DocumentDetail() {
                   router.push("/documents");
                 });
               }}
-              className="rounded-md border border-zinc-700 bg-zinc-900 text-zinc-400 hover:text-red-400 hover:border-red-500/40 px-4 py-2 text-sm font-medium"
+              className="rounded-md border border-white/15 bg-white/[0.04] text-blue-100/60 hover:text-red-400 hover:border-red-500/40 px-4 py-2 text-sm font-medium"
             >
               Delete
             </button>
@@ -250,10 +250,10 @@ function DocumentDetail() {
       </div>
 
       {doc.status === "approved" && ["admin", "approver"].includes(user?.role || "") && (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-          <h2 className="text-sm font-semibold text-zinc-300 mb-3">Push selected fields to a database</h2>
+        <div className="bg-white/[0.04] border border-white/10 rounded-lg p-5">
+          <h2 className="text-sm font-semibold text-blue-100/80 mb-3">Push selected fields to a database</h2>
           {integrations.length === 0 ? (
-            <p className="text-sm text-zinc-500">
+            <p className="text-sm text-blue-100/45">
               No integrations configured yet. Add one under Admin → Integrations (or via the API) to push approved
               data onward.
             </p>
@@ -261,7 +261,7 @@ function DocumentDetail() {
             <>
               <div className="relative mb-3">
                 <select
-                  className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2.5 pr-9 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+                  className="w-full appearance-none rounded-lg border border-white/15 bg-white/[0.04] text-white px-3 py-2.5 pr-9 text-sm hover:border-white/25 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 outline-none transition cursor-pointer"
                   value={pushIntegration}
                   onChange={(e) => setPushIntegration(e.target.value)}
                 >
@@ -272,11 +272,11 @@ function DocumentDetail() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-100/45" />
               </div>
               <div className="flex flex-wrap gap-3 mb-3">
                 {Object.keys(doc.fields).map((k) => (
-                  <label key={k} className="flex items-center gap-1.5 text-sm text-zinc-400">
+                  <label key={k} className="flex items-center gap-1.5 text-sm text-blue-100/60">
                     <input
                       type="checkbox"
                       checked={pushFields.includes(k)}
@@ -296,7 +296,7 @@ function DocumentDetail() {
                     setNotice(`Pushed ${pushFields.length} field(s) to the selected destination.`);
                   })
                 }
-                className="rounded-md bg-zinc-700 text-white px-4 py-2 text-sm font-medium disabled:opacity-40"
+                className="rounded-md bg-white/10 text-white px-4 py-2 text-sm font-medium disabled:opacity-40"
               >
                 Push selected fields
               </button>

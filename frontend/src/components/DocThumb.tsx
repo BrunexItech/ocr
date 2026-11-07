@@ -40,13 +40,13 @@ export default function DocThumb({
 
   if (failed) {
     return (
-      <div className={`flex items-center justify-center bg-zinc-800 text-zinc-500 ${className || ""}`}>
+      <div className={`flex items-center justify-center bg-white/10 text-blue-100/50 ${className || ""}`}>
         <FileWarning className="w-8 h-8" strokeWidth={1.5} />
       </div>
     );
   }
   if (!src) {
-    return <div className={`animate-pulse bg-zinc-800 ${className || ""}`} />;
+    return <div className={`animate-pulse bg-white/10 ${className || ""}`} />;
   }
   // eslint-disable-next-line @next/next/no-img-element
   return <img src={src} alt="Document preview" className={`${fit === "contain" ? "object-contain" : "object-cover"} ${className || ""}`} />;

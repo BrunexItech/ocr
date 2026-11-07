@@ -34,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
     >
-      <body className="min-h-full flex flex-col lg:flex-row text-zinc-100 app-shell-bg">
+      <body className="min-h-full flex flex-col lg:flex-row text-blue-100 app-shell-bg">
         <AuthProvider>
           <PwaRegister />
           <Sidebar />

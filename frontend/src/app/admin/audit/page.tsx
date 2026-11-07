@@ -27,9 +27,9 @@ function AuditAdmin() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
         <div>
           <h1 className="text-xl font-semibold mb-1">Audit trail</h1>
-          <p className="text-sm text-zinc-500">Hash-chained, tamper-evident log of every action in the system.</p>
+          <p className="text-sm text-blue-100/45">Hash-chained, tamper-evident log of every action in the system.</p>
         </div>
-        <button onClick={onVerify} disabled={busy} className="rounded-lg bg-zinc-700 text-white px-5 py-2.5 text-sm font-semibold hover:bg-zinc-600 active:scale-[0.97] transition shadow-sm disabled:opacity-50 self-start sm:self-auto whitespace-nowrap">
+        <button onClick={onVerify} disabled={busy} className="rounded-lg bg-white/10 text-white px-5 py-2.5 text-sm font-semibold hover:bg-white/20 active:scale-[0.97] transition shadow-sm disabled:opacity-50 self-start sm:self-auto whitespace-nowrap">
           {busy ? "Verifying…" : "Verify chain integrity"}
         </button>
       </div>
@@ -40,9 +40,9 @@ function AuditAdmin() {
         </div>
       )}
 
-      <div className="bg-zinc-900 border border-zinc-800 rounded-lg overflow-hidden overflow-x-auto">
+      <div className="bg-white/[0.04] border border-white/10 rounded-lg overflow-hidden overflow-x-auto">
         <table className="w-full text-sm min-w-[720px]">
-          <thead className="bg-zinc-800 text-zinc-500 text-xs uppercase">
+          <thead className="bg-white/10 text-blue-100/45 text-xs uppercase">
             <tr>
               <th className="text-left px-4 py-2">#</th>
               <th className="text-left px-4 py-2">Time</th>
@@ -53,12 +53,12 @@ function AuditAdmin() {
           </thead>
           <tbody>
             {events.map((e) => (
-              <tr key={e.seq} className="border-t border-zinc-800">
-                <td className="px-4 py-2 font-mono text-xs text-zinc-500">{e.seq}</td>
-                <td className="px-4 py-2 text-xs text-zinc-500 whitespace-nowrap">{new Date(e.ts).toLocaleString()}</td>
+              <tr key={e.seq} className="border-t border-white/10">
+                <td className="px-4 py-2 font-mono text-xs text-blue-100/45">{e.seq}</td>
+                <td className="px-4 py-2 text-xs text-blue-100/45 whitespace-nowrap">{new Date(e.ts).toLocaleString()}</td>
                 <td className="px-4 py-2">{e.user}</td>
                 <td className="px-4 py-2 font-mono text-xs">{e.action}</td>
-                <td className="px-4 py-2 text-zinc-500">{e.detail}</td>
+                <td className="px-4 py-2 text-blue-100/45">{e.detail}</td>
               </tr>
             ))}
           </tbody>

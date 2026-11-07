@@ -99,19 +99,19 @@ function ZoneTool() {
   return (
     <div className="max-w-4xl">
       <h1 className="text-xl font-semibold mb-1">Zone template tool</h1>
-      <p className="text-sm text-zinc-500 mb-6">
+      <p className="text-sm text-blue-100/45 mb-6">
         Upload a real scan, drag to draw a box over each field, name it, then copy the JSON straight into a{" "}
-        <code className="text-zinc-400">POST /api/documents/ocr-zones</code> request. Coordinates are in pixels of{" "}
+        <code className="text-blue-100/60">POST /api/documents/ocr-zones</code> request. Coordinates are in pixels of{" "}
         <b>this exact uploaded image</b> — no cropping or straightening is applied before you draw, so what you
         see here is the coordinate space the API expects.
       </p>
 
       {!imageUrl ? (
-        <div className="rounded-2xl border-2 border-dashed border-zinc-700 bg-zinc-900 p-10 text-center">
+        <div className="rounded-2xl border-2 border-dashed border-white/15 bg-white/[0.04] p-10 text-center">
           <button
             type="button"
             onClick={() => fileInput.current?.click()}
-            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-emerald-700 transition"
+            className="inline-flex items-center gap-2 rounded-full bg-blue-600 text-white px-5 py-2.5 text-sm font-semibold hover:bg-blue-700 transition"
           >
             <Upload className="w-4 h-4" />
             Upload a sample scan
@@ -126,12 +126,12 @@ function ZoneTool() {
         </div>
       ) : (
         <>
-          <p className="text-xs text-zinc-500 mb-2">
+          <p className="text-xs text-blue-100/45 mb-2">
             Image: {naturalSize?.w}×{naturalSize?.h}px (displayed at {Math.round(scale * 100)}% — drawn coordinates
             are converted back to full resolution automatically)
           </p>
           <div
-            className="relative inline-block select-none touch-none rounded-lg overflow-hidden border border-zinc-800"
+            className="relative inline-block select-none touch-none rounded-lg overflow-hidden border border-white/10"
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
@@ -168,7 +168,7 @@ function ZoneTool() {
             <button
               type="button"
               onClick={() => fileInput.current?.click()}
-              className="text-sm text-zinc-400 hover:text-zinc-200 underline"
+              className="text-sm text-blue-100/60 hover:text-white underline"
             >
               Load a different image
             </button>
@@ -183,7 +183,7 @@ function ZoneTool() {
               type="button"
               disabled={zones.length === 0}
               onClick={copyJson}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-1.5 text-xs font-semibold hover:bg-emerald-700 disabled:opacity-40 transition"
+              className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 text-white px-4 py-1.5 text-xs font-semibold hover:bg-blue-700 disabled:opacity-40 transition"
             >
               <Copy className="w-3.5 h-3.5" />
               {copied ? "Copied!" : "Copy zones JSON"}
@@ -191,18 +191,18 @@ function ZoneTool() {
           </div>
 
           <div className="space-y-2">
-            {zones.length === 0 && <p className="text-sm text-zinc-500">Drag on the image above to add your first zone.</p>}
+            {zones.length === 0 && <p className="text-sm text-blue-100/45">Drag on the image above to add your first zone.</p>}
             {zones.map((z) => (
-              <div key={z.id} className="flex items-center gap-2 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
+              <div key={z.id} className="flex items-center gap-2 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2">
                 <input
                   value={z.key}
                   onChange={(e) => updateKey(z.id, e.target.value)}
-                  className="flex-1 bg-transparent text-sm text-zinc-100 font-mono outline-none"
+                  className="flex-1 bg-transparent text-sm text-white font-mono outline-none"
                 />
-                <span className="text-xs text-zinc-500 font-mono whitespace-nowrap">
+                <span className="text-xs text-blue-100/45 font-mono whitespace-nowrap">
                   x:{z.x} y:{z.y} w:{z.width} h:{z.height}
                 </span>
-                <button onClick={() => removeZone(z.id)} className="p-1 text-zinc-500 hover:text-red-400" aria-label="Remove zone">
+                <button onClick={() => removeZone(z.id)} className="p-1 text-blue-100/45 hover:text-red-400" aria-label="Remove zone">
                   <Trash2 className="w-4 h-4" />
                 </button>
               </div>

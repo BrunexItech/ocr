@@ -131,7 +131,7 @@ function IntakeForm() {
   return (
     <div className="max-w-xl mx-auto">
       <h1 className="text-xl font-semibold mb-1">Scan a document</h1>
-      <p className="text-sm text-zinc-500 mb-6">
+      <p className="text-sm text-blue-100/45 mb-6">
         Point your camera at a document — it captures automatically once the edges are detected and steady,
         or tap the shutter yourself anytime.
       </p>
@@ -167,13 +167,13 @@ function IntakeForm() {
                     setScanMode(mode);
                     setScannerOpen(true);
                   }}
-                  className="flex flex-col items-center gap-1.5 sm:gap-2 rounded-2xl border border-zinc-800 bg-zinc-900 p-2.5 sm:p-4 text-center hover:border-emerald-600/50 hover:bg-zinc-800/60 transition card-float"
+                  className="flex flex-col items-center gap-1.5 sm:gap-2 rounded-2xl border border-white/10 bg-white/[0.04] p-2.5 sm:p-4 text-center hover:border-blue-600/50 hover:bg-white/10 transition card-float"
                 >
                   <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-xl brand-grad text-white flex items-center justify-center shrink-0">
                     <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
-                  <span className="text-xs sm:text-sm font-semibold text-zinc-200">{label}</span>
-                  <span className="hidden sm:block text-[11px] text-zinc-500 leading-tight">{hint}</span>
+                  <span className="text-xs sm:text-sm font-semibold text-white">{label}</span>
+                  <span className="hidden sm:block text-[11px] text-blue-100/45 leading-tight">{hint}</span>
                 </button>
               ))}
             </div>
@@ -190,14 +190,14 @@ function IntakeForm() {
                 pickFile(e.dataTransfer.files?.[0] || null);
               }}
               className={`rounded-2xl border-2 border-dashed p-6 text-center transition ${
-                dragOver ? "border-emerald-500 bg-emerald-500/10" : "border-zinc-700 bg-zinc-900"
+                dragOver ? "border-emerald-500 bg-emerald-500/10" : "border-white/15 bg-white/[0.04]"
               }`}
             >
-              <p className="text-xs text-zinc-500 mb-3">Or drop a file — PDF, JPG, PNG, WEBP, up to 25MB</p>
+              <p className="text-xs text-blue-100/45 mb-3">Or drop a file — PDF, JPG, PNG, WEBP, up to 25MB</p>
               <button
                 type="button"
                 onClick={() => fileInput.current?.click()}
-                className="inline-flex items-center gap-2 rounded-full border border-zinc-700 bg-zinc-900 px-5 py-2.5 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 transition"
+                className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/[0.04] px-5 py-2.5 text-sm font-semibold text-blue-100/80 hover:bg-white/10 transition"
               >
                 <Upload className="w-4 h-4" />
                 Choose file
@@ -214,12 +214,12 @@ function IntakeForm() {
         ) : (
           <div className="space-y-2.5">
             {needsBackSide && (
-              <div className="inline-flex p-1 rounded-full bg-zinc-900 border border-zinc-800 gap-1">
+              <div className="inline-flex p-1 rounded-full bg-white/[0.04] border border-white/10 gap-1">
                 <button
                   type="button"
                   onClick={() => setPreviewSide("front")}
                   className={`px-4 py-1.5 rounded-full text-xs font-semibold transition ${
-                    previewSide === "front" ? "bg-emerald-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                    previewSide === "front" ? "bg-blue-600 text-white shadow-sm" : "text-blue-100/60 hover:text-white"
                   }`}
                 >
                   Front
@@ -229,7 +229,7 @@ function IntakeForm() {
                   onClick={() => backFile && setPreviewSide("back")}
                   disabled={!backFile}
                   className={`px-4 py-1.5 rounded-full text-xs font-semibold transition flex items-center gap-1.5 ${
-                    previewSide === "back" ? "bg-emerald-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                    previewSide === "back" ? "bg-blue-600 text-white shadow-sm" : "text-blue-100/60 hover:text-white"
                   } ${!backFile ? "opacity-40 cursor-not-allowed" : ""}`}
                 >
                   Back
@@ -238,7 +238,7 @@ function IntakeForm() {
               </div>
             )}
 
-            <div className="rounded-2xl overflow-hidden border border-zinc-800 bg-black relative">
+            <div className="rounded-2xl overflow-hidden border border-white/10 bg-black relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={previewSide === "back" ? backPreview || "" : preview}
@@ -261,7 +261,7 @@ function IntakeForm() {
                       setCapturingSide(previewSide);
                       setScannerOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 bg-zinc-900/90 hover:bg-zinc-900 rounded-full pl-3 pr-3.5 py-1.5 text-xs font-semibold text-zinc-200 shadow transition"
+                    className="inline-flex items-center gap-1.5 bg-black/60 hover:bg-white/[0.04] rounded-full pl-3 pr-3.5 py-1.5 text-xs font-semibold text-white shadow transition"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     Retake {previewSide === "front" ? "Front" : "Back"}
@@ -270,10 +270,10 @@ function IntakeForm() {
                 <button
                   type="button"
                   onClick={() => pickFile(null)}
-                  className="bg-zinc-900/90 hover:bg-zinc-900 rounded-full p-2 shadow transition"
+                  className="bg-black/60 hover:bg-white/[0.04] rounded-full p-2 shadow transition"
                   aria-label="Remove"
                 >
-                  <X className="w-4 h-4 text-zinc-300" />
+                  <X className="w-4 h-4 text-blue-100/80" />
                 </button>
               </div>
             </div>
@@ -281,8 +281,8 @@ function IntakeForm() {
         )}
 
         {file && !file.type.startsWith("image/") && (
-          <div className="flex items-center gap-2 text-sm text-zinc-400 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2">
-            <FileText className="w-4 h-4 text-zinc-500" />
+          <div className="flex items-center gap-2 text-sm text-blue-100/60 bg-white/[0.04] border border-white/10 rounded-lg px-3 py-2">
+            <FileText className="w-4 h-4 text-blue-100/45" />
             {file.name}
           </div>
         )}
@@ -296,7 +296,7 @@ function IntakeForm() {
                 setCapturingSide("back");
                 setScannerOpen(true);
               }}
-              className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-2 text-xs font-semibold hover:bg-emerald-700 active:scale-95 transition whitespace-nowrap shadow-sm"
+              className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 text-white px-4 py-2 text-xs font-semibold hover:bg-blue-700 active:scale-95 transition whitespace-nowrap shadow-sm"
             >
               <Camera className="w-3.5 h-3.5" />
               Scan back
@@ -305,9 +305,9 @@ function IntakeForm() {
         )}
 
         {file && supportsMultiPage && !result && (
-          <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3.5 space-y-3">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-3.5 space-y-3">
             <div className="flex items-center justify-between gap-3">
-              <span className="text-sm text-zinc-300 flex items-center gap-2">
+              <span className="text-sm text-blue-100/80 flex items-center gap-2">
                 {extraPages.length > 0 && (
                   <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-500/15 text-emerald-400 text-[11px] font-bold shrink-0">
                     {extraPages.length + 1}
@@ -321,7 +321,7 @@ function IntakeForm() {
                   setCapturingSide("extra");
                   setScannerOpen(true);
                 }}
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 text-white px-4 py-2 text-xs font-semibold hover:bg-emerald-700 active:scale-95 transition whitespace-nowrap shadow-sm"
+                className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 text-white px-4 py-2 text-xs font-semibold hover:bg-blue-700 active:scale-95 transition whitespace-nowrap shadow-sm"
               >
                 <Camera className="w-3.5 h-3.5" />
                 {extraPages.length > 0 ? "Add another page" : "Add a page"}
@@ -332,17 +332,17 @@ function IntakeForm() {
                 {extraPreviews.map((url, i) => (
                   <div key={i} className="relative shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={url} alt={`Page ${i + 2}`} className="w-14 h-14 rounded-lg object-cover border border-zinc-700" />
-                    <span className="absolute -top-1.5 -left-1.5 bg-zinc-800 text-zinc-300 text-[10px] font-semibold rounded-full w-5 h-5 flex items-center justify-center border border-zinc-600">
+                    <img src={url} alt={`Page ${i + 2}`} className="w-14 h-14 rounded-lg object-cover border border-white/15" />
+                    <span className="absolute -top-1.5 -left-1.5 bg-white/10 text-blue-100/80 text-[10px] font-semibold rounded-full w-5 h-5 flex items-center justify-center border border-white/25">
                       {i + 2}
                     </span>
                     <button
                       type="button"
                       onClick={() => setExtraPages((prev) => prev.filter((_, idx) => idx !== i))}
-                      className="absolute -top-1.5 -right-1.5 bg-zinc-900 rounded-full p-0.5 border border-zinc-700"
+                      className="absolute -top-1.5 -right-1.5 bg-white/[0.04] rounded-full p-0.5 border border-white/15"
                       aria-label={`Remove page ${i + 2}`}
                     >
-                      <X className="w-3 h-3 text-zinc-300" />
+                      <X className="w-3 h-3 text-blue-100/80" />
                     </button>
                   </div>
                 ))}
@@ -353,23 +353,23 @@ function IntakeForm() {
 
         {file && !result && (
           <>
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 card-float">
-              <label className="block text-sm font-medium text-zinc-300 mb-1.5">Name this scan (optional)</label>
+            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 card-float">
+              <label className="block text-sm font-medium text-blue-100/80 mb-1.5">Name this scan (optional)</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. John Doe - National ID, Q3 invoice from Acme"
-                className="w-full rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 placeholder-zinc-500 px-3 py-2 text-sm"
+                className="w-full rounded-lg border border-white/15 bg-white/[0.04] text-white placeholder-blue-100/40 px-3 py-2 text-sm"
               />
-              <p className="text-xs text-zinc-500 mt-1.5">Makes it easy to find later — search by name instead of the tracking number.</p>
+              <p className="text-xs text-blue-100/45 mt-1.5">Makes it easy to find later — search by name instead of the tracking number.</p>
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 card-float">
-              <label className="block text-sm font-medium text-zinc-300 mb-1.5">Document type (for structured extraction)</label>
+            <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 card-float">
+              <label className="block text-sm font-medium text-blue-100/80 mb-1.5">Document type (for structured extraction)</label>
               <div className="relative">
                 <select
-                  className="w-full appearance-none rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100 px-3 py-2.5 pr-9 text-sm hover:border-zinc-600 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500/40 outline-none transition cursor-pointer"
+                  className="w-full appearance-none rounded-lg border border-white/15 bg-white/[0.04] text-white px-3 py-2.5 pr-9 text-sm hover:border-white/25 focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40 outline-none transition cursor-pointer"
                   value={typeId}
                   onChange={(e) => setTypeId(e.target.value)}
                 >
@@ -380,17 +380,17 @@ function IntakeForm() {
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
+                <ChevronDown className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-100/45" />
               </div>
             </div>
 
-            <p className="text-sm font-medium text-zinc-300 pt-1">What do you want to do with this scan?</p>
+            <p className="text-sm font-medium text-blue-100/80 pt-1">What do you want to do with this scan?</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               <button
                 type="button"
                 disabled={!!busyMode}
                 onClick={() => submit("extract")}
-                className="flex items-center justify-center gap-2 rounded-xl bg-emerald-600 text-white p-3.5 text-sm font-semibold hover:bg-emerald-700 disabled:opacity-50 transition"
+                className="flex items-center justify-center gap-2 rounded-xl bg-blue-600 text-white p-3.5 text-sm font-semibold hover:bg-blue-700 disabled:opacity-50 transition"
               >
                 {busyMode === "extract" && <Spinner className="w-4 h-4" light />}
                 {busyMode === "extract" ? "Reading document…" : "Extract & save to database"}
@@ -399,7 +399,7 @@ function IntakeForm() {
                 type="button"
                 disabled={!!busyMode}
                 onClick={() => submit("document_only")}
-                className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 p-3.5 text-sm font-semibold text-zinc-300 hover:bg-zinc-800 disabled:opacity-50 transition"
+                className="flex items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/[0.04] p-3.5 text-sm font-semibold text-blue-100/80 hover:bg-white/10 disabled:opacity-50 transition"
               >
                 {busyMode === "document_only" && <Spinner className="w-4 h-4" />}
                 {busyMode === "document_only" ? "Saving…" : "Just keep the scanned document"}
@@ -410,14 +410,14 @@ function IntakeForm() {
 
         {error && <p className="text-sm text-red-400">{error}</p>}
         {result && (
-          <div className="rounded-2xl bg-zinc-900 border border-emerald-500/30 p-5 card-float">
+          <div className="rounded-2xl bg-white/[0.04] border border-emerald-500/30 p-5 card-float">
             <div className="flex items-start gap-3 mb-4">
               <span className="w-10 h-10 rounded-full bg-emerald-500/15 text-emerald-400 flex items-center justify-center shrink-0">
                 <Check className="w-5 h-5" />
               </span>
               <div className="min-w-0">
-                <p className="font-semibold text-zinc-100">{result.detectedKind}</p>
-                <p className="text-xs text-zinc-500 font-mono mt-0.5">{result.tracking_no}</p>
+                <p className="font-semibold text-white">{result.detectedKind}</p>
+                <p className="text-xs text-blue-100/45 font-mono mt-0.5">{result.tracking_no}</p>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -425,7 +425,7 @@ function IntakeForm() {
                 {result.status.replace("_", " ")}
               </span>
               {result.confidence != null && (
-                <span className="inline-flex items-center rounded-full bg-zinc-800 text-zinc-400 text-xs font-medium px-2.5 py-1">
+                <span className="inline-flex items-center rounded-full bg-white/10 text-blue-100/60 text-xs font-medium px-2.5 py-1">
                   {(result.confidence * 100).toFixed(0)}% confidence
                 </span>
               )}
@@ -434,14 +434,14 @@ function IntakeForm() {
               <button
                 type="button"
                 onClick={() => router.push("/documents")}
-                className="flex-1 rounded-lg bg-emerald-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-emerald-700 active:scale-[0.98] transition shadow-sm"
+                className="flex-1 rounded-lg bg-blue-600 text-white px-4 py-2.5 text-sm font-semibold hover:bg-blue-700 active:scale-[0.98] transition shadow-sm"
               >
                 View in queue
               </button>
               <button
                 type="button"
                 onClick={() => pickFile(null)}
-                className="flex-1 rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-200 px-4 py-2.5 text-sm font-semibold hover:bg-zinc-800 active:scale-[0.98] transition"
+                className="flex-1 rounded-lg border border-white/15 bg-white/[0.04] text-white px-4 py-2.5 text-sm font-semibold hover:bg-white/10 active:scale-[0.98] transition"
               >
                 Scan another
               </button>

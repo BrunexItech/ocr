@@ -248,7 +248,7 @@ export default function LiveScanner({
                   setErrorMsg("");
                   setRetryKey((k) => k + 1);
                 }}
-                className="rounded-full bg-emerald-600 px-5 py-2 text-sm font-semibold hover:bg-emerald-700"
+                className="rounded-full bg-blue-600 px-5 py-2 text-sm font-semibold hover:bg-blue-700"
               >
                 Try again
               </button>
@@ -264,7 +264,7 @@ export default function LiveScanner({
         {status === "live" && (
           <button
             onClick={captureNow}
-            className="w-16 h-16 rounded-full bg-zinc-900 ring-4 ring-white/30 active:scale-95 transition"
+            className="w-16 h-16 rounded-full bg-[#0a1430] ring-4 ring-white/30 active:scale-95 transition"
             aria-label="Capture"
           />
         )}
