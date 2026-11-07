@@ -4,10 +4,11 @@ import { useEffect, useState } from "react";
 import RequireAuth from "@/components/RequireAuth";
 import { api, ApiError, DocumentType } from "@/lib/api";
 import { ChevronDown, Lock } from "lucide-react";
+import { humanizeFieldKey } from "@/lib/format";
 
 type FieldRow = { key: string; label: string; type: string; required: boolean; sensitive: boolean };
 
-const FIELD_PREVIEW_COUNT = 6;
+const FIELD_PREVIEW_COUNT = 5;
 
 function FieldChips({ schema }: { schema: DocumentType["fields_schema"] }) {
   const [expanded, setExpanded] = useState(false);
@@ -15,26 +16,26 @@ function FieldChips({ schema }: { schema: DocumentType["fields_schema"] }) {
   const shown = expanded ? entries : entries.slice(0, FIELD_PREVIEW_COUNT);
   const remaining = entries.length - shown.length;
 
-  if (entries.length === 0) return <span className="text-zinc-600">—</span>;
+  if (entries.length === 0) return <span className="text-zinc-600 text-sm">No fields configured</span>;
 
   return (
-    <div className="flex flex-wrap gap-1.5 max-w-[420px]">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-2">
       {shown.map(([k, v]) => (
         <span
           key={k}
-          className="inline-flex items-center gap-1 rounded-full bg-zinc-800 text-zinc-300 text-xs px-2 py-0.5 whitespace-nowrap"
-          title={v.label || k}
+          className="inline-flex items-center gap-1.5 rounded-md bg-zinc-800/80 border border-zinc-700/60 text-zinc-300 text-xs font-medium px-2.5 py-1 whitespace-nowrap"
+          title={v.label || humanizeFieldKey(k)}
         >
-          {k}
-          {v.required && <span className="text-emerald-400">*</span>}
-          {v.sensitive && <Lock className="w-3 h-3 text-amber-400" />}
+          {v.required && <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />}
+          {humanizeFieldKey(k)}
+          {v.sensitive && <Lock className="w-3 h-3 text-amber-400 flex-shrink-0" />}
         </span>
       ))}
       {remaining > 0 && (
         <button
           type="button"
           onClick={() => setExpanded(true)}
-          className="inline-flex items-center rounded-full bg-zinc-800/60 text-emerald-400 text-xs font-medium px-2 py-0.5 hover:bg-zinc-800 transition"
+          className="inline-flex items-center rounded-md text-emerald-400 text-xs font-medium px-2 py-1 hover:text-emerald-300 transition"
         >
           +{remaining} more
         </button>
@@ -43,7 +44,7 @@ function FieldChips({ schema }: { schema: DocumentType["fields_schema"] }) {
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="inline-flex items-center rounded-full bg-zinc-800/60 text-zinc-400 text-xs font-medium px-2 py-0.5 hover:bg-zinc-800 transition"
+          className="inline-flex items-center rounded-md text-zinc-500 text-xs font-medium px-2 py-1 hover:text-zinc-300 transition"
         >
           Show less
         </button>
@@ -101,6 +102,16 @@ function TypesAdmin() {
       </p>
 
       <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden mb-6 shadow-sm">
+        {types.length > 0 && (
+          <div className="px-5 py-2.5 border-b border-zinc-800 flex items-center gap-4 text-[11px] text-zinc-500">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Required
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <Lock className="w-3 h-3 text-amber-400" /> Sensitive
+            </span>
+          </div>
+        )}
         {types.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-zinc-500">
             No document types yet. Run <code className="text-zinc-400">python -m scripts.seed_templates</code> or create one below.
@@ -108,7 +119,7 @@ function TypesAdmin() {
         ) : (
           <div className="divide-y divide-zinc-800">
             {types.map((t) => (
-              <div key={t.id} className="px-5 py-4 flex flex-col sm:flex-row sm:items-start gap-3">
+              <div key={t.id} className="px-5 py-5 flex flex-col sm:flex-row sm:items-start gap-3">
                 <div className="sm:w-56 shrink-0">
                   <p className="text-sm font-semibold text-zinc-100">{t.name}</p>
                   <p className="text-xs text-zinc-500 mt-0.5">

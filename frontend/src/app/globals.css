@@ -40,6 +40,14 @@ body {
   border-radius: 8px;
 }
 
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
 .brand-grad {
   background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
 }

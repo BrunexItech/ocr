@@ -38,7 +38,7 @@ export default function NavBar() {
 
         {/* Desktop nav */}
         {user && (
-          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto">
+          <nav className="hidden md:flex items-center gap-1 flex-1 min-w-0 overflow-x-auto no-scrollbar">
             {links.map((l) => (
               <Link
                 key={l.href}
