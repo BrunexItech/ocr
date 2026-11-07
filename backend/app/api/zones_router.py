@@ -2,7 +2,6 @@
 rectangles on that image) and gets back text, confidence, script, and bounding box
 per zone. This is a separate, additive endpoint - it does not touch or run during the
 normal scan/intake/review flow, so it can't regress the OCR's primary use."""
-from __future__ import annotations
 
 import json
 
