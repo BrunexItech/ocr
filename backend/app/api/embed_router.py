@@ -2,7 +2,6 @@
 its service API key for a short-lived embed token, opens the widget in an iframe with
 that token, and the widget extracts fields from a capture WITHOUT ever storing the
 image or the result on this server - nothing here writes to disk or the database."""
-from __future__ import annotations
 
 import cv2
 import numpy as np
