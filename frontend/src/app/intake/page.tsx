@@ -354,15 +354,14 @@ function IntakeForm() {
         {file && !result && (
           <>
             <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 card-float">
-              <label className="block text-sm font-medium text-blue-100/80 mb-1.5">Name this scan (optional)</label>
+              <label className="block text-sm font-medium text-blue-100/80 mb-1.5">Name this scan</label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. John Doe - National ID, Q3 invoice from Acme"
+                placeholder="Optional"
                 className="w-full rounded-lg border border-white/15 bg-white/[0.04] text-white placeholder-blue-100/40 px-3 py-2 text-sm"
               />
-              <p className="text-xs text-blue-100/45 mt-1.5">Makes it easy to find later — search by name instead of the tracking number.</p>
             </div>
 
             <div className="bg-white/[0.04] border border-white/10 rounded-2xl p-4 card-float">
