@@ -24,6 +24,15 @@ def deskew(image: np.ndarray) -> np.ndarray:
         angle = -angle
     if abs(angle) < 0.3:
         return image
+    # minAreaRect's angle is only trustworthy as a small camera-tilt correction. On a
+    # busy real-world photo (ID card with a photo, watermark, stamp) the foreground
+    # pixels aren't dominated by text lines, and this heuristic can return a
+    # degenerate ~45/90 degree reading - rotating the whole image on that reading
+    # turns level text sideways and wrecks OCR rather than fixing anything. A real
+    # document photo rarely needs more than a few degrees of correction, so treat
+    # anything beyond that as an unreliable measurement and skip rotation entirely.
+    if abs(angle) > 15:
+        return image
     (h, w) = image.shape[:2]
     center = (w // 2, h // 2)
     matrix = cv2.getRotationMatrix2D(center, angle, 1.0)

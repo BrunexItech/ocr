@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { ApiError } from "@/lib/api";
@@ -7,6 +8,20 @@ import Spinner from "@/components/Spinner";
 import { FileText, User, Lock, Eye, EyeOff, Zap, ShieldCheck, Gauge, ArrowRight } from "lucide-react";
 
 export default function LoginPage() {
+  // The root layout's theme-color is navy (matches the rest of the app), but this
+  // page's bottom-most visible content on mobile is a white card - leaving the navy
+  // meta in place makes the phone's browser chrome/home-indicator bar paint navy
+  // right against that white card, reading as a stray dark strip. Swap it to white
+  // while this page is mounted, restore the app's navy on unmount.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]');
+    const prev = meta?.getAttribute("content");
+    meta?.setAttribute("content", "#ffffff");
+    return () => {
+      if (prev) meta?.setAttribute("content", prev);
+    };
+  }, []);
+
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
