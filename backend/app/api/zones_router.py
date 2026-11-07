@@ -8,14 +8,16 @@ import json
 
 import cv2
 import numpy as np
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from pydantic import BaseModel
 
 from app.auth.api_key import get_service_account
 from app.core.config import settings
+from app.core.limiter import limiter
 from app.models.base import ServiceAccount
 from app.pipeline.engine import default_engine
 from app.pipeline.normalize_ke import NORMALIZERS
+from app.pipeline.preprocess import preprocess_for_ocr
 
 router = APIRouter()
 _printed_engine = default_engine()
@@ -61,6 +63,47 @@ def zones_health(account: ServiceAccount = Depends(get_service_account)):
     """Key-authenticated connectivity check for the zone service specifically -
     confirms both that the server is reachable AND that this exact key is valid."""
     return {"ok": True, "service": "ocr-zones", "account": account.name}
+
+
+@router.post("/ocr-text")
+@limiter.limit("20/minute")
+def ocr_text(
+    request: Request,
+    file: UploadFile = File(...),
+    account: ServiceAccount = Depends(get_service_account),
+):
+    """Diagnostic/design-time endpoint: send an image, get back every text line the
+    OCR engine actually sees - its text, confidence, and pixel bounding box - plus
+    the image dimensions those boxes are in. Use this to find out exactly how a real
+    document reads (label wording, same-line vs next-line layout, where on the page
+    a field sits) before writing a schema's field labels or a zones request, instead
+    of guessing. Runs the same preprocessing as the real intake flow, so what you see
+    here is what classify_and_extract/extract_fields_by_schema would have seen too."""
+    data = file.file.read()
+    if len(data) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(400, f"File exceeds {settings.max_upload_mb}MB limit")
+    image = cv2.imdecode(np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(400, "Could not decode image - ocr-text accepts single raster images (JPG/PNG/WebP) only, not PDF")
+    img_h, img_w = image.shape[:2]
+    if img_h > MAX_DIMENSION or img_w > MAX_DIMENSION:
+        raise HTTPException(400, f"Image too large ({img_w}x{img_h}); max {MAX_DIMENSION}px on a side")
+
+    processed = preprocess_for_ocr(image)
+    result = _printed_engine.run(processed)
+    lines = [
+        {"text": b.text, "confidence": round(b.confidence, 4), "bbox": b.box}
+        for b in result.blocks
+    ]
+    overall_conf = sum(b.confidence for b in result.blocks) / len(result.blocks) if result.blocks else 0.0
+
+    return {
+        "lines": lines,
+        "full_text": result.full_text,
+        "ocr_confidence": round(overall_conf, 4),
+        "image_width": img_w,
+        "image_height": img_h,
+    }
 
 
 @router.post("/ocr-zones")
