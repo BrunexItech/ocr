@@ -53,6 +53,7 @@ RUN pip install alembic==1.14.0
 RUN pip install bcrypt==4.0.1
 RUN pip install "passlib[bcrypt]"==1.7.4
 RUN pip install "python-jose[cryptography]"==3.3.0
+RUN pip install slowapi==0.1.10
 
 COPY . .
 
