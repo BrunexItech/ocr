@@ -65,7 +65,7 @@ export default function LoginPage() {
 
           {/* A single dark document surface, with the scan light confined to it */}
           <div className="relative w-56 aspect-[7/4] rounded-xl bg-zinc-950/70 border border-white/10 shadow-2xl overflow-hidden">
-            <div aria-hidden className="scan-sweep absolute left-0 right-0 h-16 bg-gradient-to-b from-transparent via-emerald-400/40 to-transparent pointer-events-none" />
+            <div aria-hidden className="scan-sweep absolute left-0 right-0 h-1 bg-emerald-400/80 shadow-[0_0_8px_2px_rgba(52,211,153,0.6)] pointer-events-none" />
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-white/40">
               <IdCard className="w-8 h-8" strokeWidth={1.5} />
               <span className="text-xs font-medium tracking-wide">National ID</span>
