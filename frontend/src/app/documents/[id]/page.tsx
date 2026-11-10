@@ -8,7 +8,9 @@ import { useAuth } from "@/lib/auth-context";
 import { api, ApiError, DocumentOut, IntegrationOut } from "@/lib/api";
 import { Check, ChevronDown, Pencil, X as XIcon } from "lucide-react";
 import Spinner from "@/components/Spinner";
-import { humanizeFieldKey } from "@/lib/format";
+import { humanizeFieldKey, humanizeCountryCode } from "@/lib/format";
+
+const COUNTRY_CODE_FIELDS = new Set(["issuing_country", "nationality"]);
 
 function DocumentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -156,6 +158,9 @@ function DocumentDetail() {
             <div key={key} className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 sm:gap-3 sm:items-center">
               <label className="text-sm text-blue-100/60 sm:col-span-1">
                 {humanizeFieldKey(key)}
+                {COUNTRY_CODE_FIELDS.has(key) && Boolean(value) && (
+                  <span className="block text-xs text-blue-100/45">{humanizeCountryCode(String(value))}</span>
+                )}
                 {doc.field_confidence[key] != null && (
                   <span className="block text-xs text-blue-100/45">{(doc.field_confidence[key] * 100).toFixed(0)}% confidence</span>
                 )}

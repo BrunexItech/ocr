@@ -10,7 +10,7 @@ from app.pipeline.extract_fields import (
     extract_invoice_fields,
     looks_like_id,
 )
-from app.pipeline.mrz import MrzResult, find_and_parse_mrz, mrz_to_fields
+from app.pipeline.mrz import MrzResult, find_and_parse_mrz, mrz_to_fields, _detect_country_from_text
 
 
 def classify_and_extract(
@@ -28,6 +28,13 @@ def classify_and_extract(
     mrz_result = find_and_parse_mrz(full_text) if (treat_as_identity or not doc_type) else None
     if mrz_result:
         extracted = mrz_to_fields(mrz_result)
+        if not extracted.get("nationality"):
+            # The MRZ's own nationality strip didn't read as a clean 3-letter code -
+            # most national IDs/passports also print the issuing country in plain,
+            # much larger text elsewhere on the page ("REPUBLIC OF KENYA"), which is
+            # far less likely to be misread than three tiny MRZ characters. Use that
+            # instead of leaving a field blank that the document actually does show.
+            extracted["nationality"] = _detect_country_from_text(full_text)
         if not mrz_result.valid:
             overall_conf = min(overall_conf, 0.5)
     elif treat_as_identity:

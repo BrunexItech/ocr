@@ -184,6 +184,29 @@ def find_and_parse_mrz(full_text: str) -> MrzResult | None:
     return None
 
 
+# ISO 3166-1 alpha-3 -> common name, for the countries this is actually likely to see
+# in practice. Deliberately not exhaustive - an unrecognised code is left as-is rather
+# than guessed, so this can only ever improve on showing the raw code, never show
+# something wrong.
+COUNTRY_NAMES = {
+    "KEN": "Kenya", "UGA": "Uganda", "TZA": "Tanzania", "RWA": "Rwanda", "BDI": "Burundi",
+    "ETH": "Ethiopia", "SOM": "Somalia", "SSD": "South Sudan", "SDN": "Sudan", "ZMB": "Zambia",
+    "MWI": "Malawi", "MOZ": "Mozambique", "ZAF": "South Africa", "NGA": "Nigeria", "GHA": "Ghana",
+    "USA": "United States", "GBR": "United Kingdom", "CAN": "Canada", "IND": "India", "CHN": "China",
+}
+
+# Matches the printed header most national IDs/passports carry ("REPUBLIC OF KENYA",
+# "JAMHURI YA KENYA", etc.) - used only as a fallback when the MRZ's own nationality
+# strip couldn't be read cleanly, since the country name is usually printed in plain,
+# much larger text elsewhere on the same page and is far less likely to be misread.
+_COUNTRY_HEADER_RE = re.compile(r"\b(?:REPUBLIC OF|JAMHURI YA|UNITED REPUBLIC OF)\s+([A-Z]+)\b", re.I)
+
+
+def _detect_country_from_text(text: str) -> str:
+    m = _COUNTRY_HEADER_RE.search(text or "")
+    return m.group(1).title() if m else ""
+
+
 def mrz_to_fields(result: MrzResult) -> dict:
     """Key names here match extract_id_fields' (the no-MRZ fallback) exactly - so
     the UI shows the same field names ("ID Number", "Date Of Birth", ...) and a
