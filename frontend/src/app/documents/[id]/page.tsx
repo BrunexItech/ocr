@@ -166,9 +166,14 @@ function DocumentDetail() {
                 )}
               </label>
               <input
-                className="sm:col-span-2 rounded-md border border-white/15 bg-white/[0.04] text-white placeholder-blue-100/40 px-3 py-1.5 text-sm disabled:bg-white/10 disabled:text-blue-100/45"
+                className="sm:col-span-2 rounded-md border border-white/15 bg-white/[0.04] text-white placeholder-blue-100/40 px-3 py-1.5 text-sm disabled:bg-white/10 disabled:text-blue-100/45 autofill:!bg-white/[0.04] autofill:!shadow-[inset_0_0_0_1000px_rgba(255,255,255,0.04)]"
                 value={String(value ?? "")}
                 disabled={!canEdit}
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="off"
+                spellCheck={false}
+                name={`field-${key}-no-autofill`}
                 onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
               />
             </div>

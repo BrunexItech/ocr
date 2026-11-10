@@ -41,6 +41,21 @@ body {
   border-radius: 8px;
 }
 
+/* Mobile browsers (Chrome/Android especially) guess an input's purpose from its
+   visible label text, not just name/autocomplete, and paint their own blue-tinted
+   autofill background on anything that looks like personal info (dates, ID numbers,
+   names) - "Date of Birth" is exactly the kind of label that triggers it. That
+   native highlight ignores our own background color, so it reads as a stray blue
+   block starting partway down a field list. Force our own background back in via
+   a long-delay box-shadow transition, the standard override for this. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--foreground);
+  box-shadow: 0 0 0 1000px rgba(255, 255, 255, 0.04) inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

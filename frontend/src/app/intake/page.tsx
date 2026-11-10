@@ -10,6 +10,25 @@ import { Camera, Check, ChevronDown, CreditCard, FileText, RotateCcw, ScanLine, 
 
 type Mode = "extract" | "document_only";
 
+// There's no real server-reported progress for a single blocking OCR call, so this
+// is a simulated curve, not a true percentage - it eases toward 95% and only ever
+// completes at 100% when the real response actually arrives, so it can look "almost
+// done" if a scan runs long, but it can never falsely claim to be finished early.
+const PROCESSING_STAGES = [
+  { at: 0, label: "Uploading image…" },
+  { at: 20, label: "Enhancing scan quality…" },
+  { at: 45, label: "Reading text…" },
+  { at: 75, label: "Extracting fields…" },
+];
+
+function stageLabelForProgress(p: number): string {
+  let label = PROCESSING_STAGES[0].label;
+  for (const stage of PROCESSING_STAGES) {
+    if (p >= stage.at) label = stage.label;
+  }
+  return label;
+}
+
 const SCAN_CARDS: { mode: ScanMode; label: string; hint: string; icon: typeof FileText }[] = [
   { mode: "document", label: "Document", hint: "Letters, invoices, receipts, forms", icon: FileText },
   { mode: "id_card", label: "ID card", hint: "National ID, driver's license", icon: CreditCard },
@@ -50,6 +69,8 @@ function IntakeForm() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busyMode, setBusyMode] = useState<Mode | null>(null);
+  const [progress, setProgress] = useState(0);
+  const progressTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [error, setError] = useState("");
   const [dragOver, setDragOver] = useState(false);
   const [scannerOpen, setScannerOpen] = useState(false);
@@ -108,6 +129,20 @@ function IntakeForm() {
     if (!file || busyMode) return;
     setBusyMode(mode);
     setError("");
+
+    if (mode === "extract") {
+      setProgress(2);
+      const start = Date.now();
+      progressTimerRef.current = setInterval(() => {
+        const elapsed = Date.now() - start;
+        // Eases toward 95% over a few seconds - matches a typical scan's real
+        // duration, but can never reach 100% on its own; only the actual response
+        // arriving does that, right below.
+        const target = 95 * (1 - Math.exp(-elapsed / 4000));
+        setProgress((p) => Math.max(p, target));
+      }, 120);
+    }
+
     try {
       const doc = await api.intake(
         file,
@@ -117,14 +152,25 @@ function IntakeForm() {
         backFile || undefined,
         extraPages
       );
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      setProgress(100);
       router.push(`/documents/${doc.id}`);
       return;
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Upload failed");
     } finally {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+      progressTimerRef.current = null;
       setBusyMode(null);
+      setProgress(0);
     }
   }
+
+  useEffect(() => {
+    return () => {
+      if (progressTimerRef.current) clearInterval(progressTimerRef.current);
+    };
+  }, []);
 
   return (
     <div className="max-w-xl mx-auto">
