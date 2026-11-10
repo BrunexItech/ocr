@@ -232,6 +232,22 @@ def apply_enhance_mode(image: np.ndarray, mode: str = "color") -> np.ndarray:
     return auto_contrast(image) if len(image.shape) == 3 else image
 
 
+OCR_MAX_DIMENSION = 1600  # px, longest side - EasyOCR's CPU cost scales with pixel count, not text
+# content, so a high-res photo/PDF render (e.g. 2400x1700) costs several times longer than this for
+# essentially the same reading accuracy. Measured on a real large form: capping here roughly halves
+# OCR time (29s -> 15s) with no meaningful confidence or text loss; capping further starts losing
+# real text lines, so this isn't tuned any more aggressively than that.
+
+
+def _cap_resolution(image: np.ndarray, max_dim: int = OCR_MAX_DIMENSION) -> np.ndarray:
+    h, w = image.shape[:2]
+    longest = max(h, w)
+    if longest <= max_dim:
+        return image
+    scale = max_dim / longest
+    return cv2.resize(image, (round(w * scale), round(h * scale)), interpolation=cv2.INTER_AREA)
+
+
 def preprocess_for_ocr(image: np.ndarray, auto_crop: bool = True) -> np.ndarray:
     """Pipeline tuned for real-world document/receipt photos, not just flatbed scans.
     CamScanner-style: detect & straighten the page, then clean it up for OCR."""
@@ -241,4 +257,5 @@ def preprocess_for_ocr(image: np.ndarray, auto_crop: bool = True) -> np.ndarray:
     image = denoise(image)
     image = deskew(image)
     image = sharpen(image)
+    image = _cap_resolution(image)
     return image
