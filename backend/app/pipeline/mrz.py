@@ -29,7 +29,7 @@ def _clean(s: str) -> str:
 
 
 _NATIONALITY_RE = re.compile(r"^[A-Z]{3}$")
-_LEADING_DIGITS = re.compile(r"^(\d+)")
+_LEADING_DIGITS = re.compile(r"^(\d{1,8})")
 
 
 @dataclass
@@ -61,9 +61,14 @@ def _derive_id_number(document_number: str, optional_data_2: str) -> str:
     """On a real Kenyan TD1 ID card, MRZ line 1's "document number" field actually
     holds the card's serial number - a different thing from the printed "ID NUMBER"
     citizens actually use. The real ID number is embedded in line 2's second
-    optional-data field instead (a digit run followed by a check character and
-    "<" padding). Prefer that when it looks like a real number; otherwise fall
-    back to document_number (right for a passport, where there's no such split)."""
+    optional-data field instead: an 7-8 digit ID number, immediately followed by a
+    single numeric check digit, then "<" padding. _LEADING_DIGITS is capped at 8
+    digits specifically so that check digit is never swallowed into the result -
+    matching on "however many leading digits happen to appear" would always grab
+    one digit too many here, every single time, since the check digit is itself a
+    plain digit with nothing to visually separate it from the real ID number.
+    Prefer the capped match when it looks like a real number; otherwise fall back
+    to document_number (right for a passport, where there's no such split)."""
     m = _LEADING_DIGITS.match(optional_data_2)
     if m and len(m.group(1)) >= 6:
         return m.group(1)
