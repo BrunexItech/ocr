@@ -449,6 +449,29 @@ function IntakeForm() {
 
         {error && <p className="text-sm text-red-400">{error}</p>}
       </div>
+
+      {busyMode === "extract" && (
+        <div className="fixed inset-0 z-50 bg-[#0a1430]/95 backdrop-blur-sm flex flex-col items-center justify-center gap-5 px-8">
+          <div className="relative w-16 h-16">
+            <Spinner className="w-16 h-16" light />
+            <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-white">
+              {Math.round(progress)}%
+            </span>
+          </div>
+          <div className="w-full max-w-xs">
+            <div className="h-2 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-400 transition-[width] duration-150 ease-out"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+          <p className="text-sm text-blue-100/80 text-center">{stageLabelForProgress(progress)}</p>
+          <p className="text-xs text-blue-100/40 text-center max-w-xs">
+            Reading a real photo takes a few seconds - this stays open until it's actually done.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
