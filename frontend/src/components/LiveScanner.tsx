@@ -9,10 +9,11 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type Box = { left: number; top: number; right: number; bottom: number };
 
-const DETECT_INTERVAL_MS = 450; // how often we ask the server "is there a document here"
-const DETECT_SEND_SIZE = 480; // downscaled frame size sent to the server for detection (fast, cheap)
+const DETECT_INTERVAL_MS = 280; // how often we ask the server "is there a document here" - was 450ms
+const DETECT_SEND_SIZE = 420; // downscaled frame size sent to the server for detection (smaller = faster round-trip)
 const STABILITY_FRAMES = 3; // consecutive server detections required before auto-capture
-const STABILITY_TOLERANCE = 18; // px of allowed edge drift between detections to count as "stable"
+const STABILITY_TOLERANCE = 20; // px of allowed edge drift between detections to count as "stable"
+const LERP_FACTOR = 0.35; // how fast the on-screen box glides toward each new detection, per animation frame
 
 function boxDistance(a: Box, b: Box): number {
   return (Math.abs(a.left - b.left) + Math.abs(a.top - b.top) + Math.abs(a.right - b.right) + Math.abs(a.bottom - b.bottom)) / 4;
@@ -22,6 +23,15 @@ function quadToBox(points: { x: number; y: number }[]): Box {
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
   return { left: Math.min(...xs), top: Math.min(...ys), right: Math.max(...xs), bottom: Math.max(...ys) };
+}
+
+function lerpBox(a: Box, b: Box, t: number): Box {
+  return {
+    left: a.left + (b.left - a.left) * t,
+    top: a.top + (b.top - a.top) * t,
+    right: a.right + (b.right - a.right) * t,
+    bottom: a.bottom + (b.bottom - a.bottom) * t,
+  };
 }
 
 export type ScanMode = "document" | "id_card" | "passport";
@@ -56,8 +66,15 @@ export default function LiveScanner({
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const historyRef = useRef<Box[]>([]);
   const capturedRef = useRef(false);
-  const lastBoxRef = useRef<Box | null>(null);
   const inFlightRef = useRef(false);
+  // Detection results land here at network speed (every DETECT_INTERVAL_MS); a
+  // separate animation loop glides the on-screen box toward this target every
+  // frame, so the overlay looks smooth and alive instead of snapping each time a
+  // server response arrives.
+  const targetBoxRef = useRef<Box | null>(null);
+  const animBoxRef = useRef<Box | null>(null);
+  const stableCountRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
 
   const [status, setStatus] = useState<Status>("starting_camera");
   const [errorMsg, setErrorMsg] = useState("");
@@ -67,6 +84,8 @@ export default function LiveScanner({
   const stop = useCallback(() => {
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = null;
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   }, []);
@@ -131,34 +150,31 @@ export default function LiveScanner({
         if (!res.ok || cancelled || capturedRef.current) return;
         const result = await res.json();
 
-        overlay.width = video.videoWidth;
-        overlay.height = video.videoHeight;
-        const octx = overlay.getContext("2d")!;
-        octx.clearRect(0, 0, overlay.width, overlay.height);
-
         if (result.found && Array.isArray(result.points) && result.width && result.height) {
           const toFull = video.videoWidth / result.width;
           const box = quadToBox(result.points.map((p: { x: number; y: number }) => ({ x: p.x * toFull, y: p.y * toFull })));
           setHasBox(true);
-          lastBoxRef.current = box;
-          octx.strokeStyle = "#10d99a";
-          octx.lineWidth = 4;
-          octx.strokeRect(box.left, box.top, box.right - box.left, box.bottom - box.top);
+          targetBoxRef.current = box;
 
           const hist = historyRef.current;
           hist.push(box);
           if (hist.length > STABILITY_FRAMES) hist.shift();
+          stableCountRef.current = hist.length;
           if (hist.length === STABILITY_FRAMES) {
             const drift = Math.max(...hist.slice(1).map((b, i) => boxDistance(b, hist[i])));
             if (drift < STABILITY_TOLERANCE) {
               captureNow();
               return;
             }
+            // Drifting too much to count as stable yet - don't let the count sit maxed
+            // out and falsely read as "locked" in the overlay color.
+            stableCountRef.current = STABILITY_FRAMES - 1;
           }
         } else {
           setHasBox(false);
           historyRef.current = [];
-          lastBoxRef.current = null;
+          targetBoxRef.current = null;
+          stableCountRef.current = 0;
         }
       } catch {
         // transient network/detection hiccup - just try again on the next tick
@@ -168,6 +184,58 @@ export default function LiveScanner({
           timerRef.current = setTimeout(detectOnce, DETECT_INTERVAL_MS);
         }
       }
+    }
+
+    // Draws every animation frame (60fps), independent of the network-speed detection
+    // poll - the box glides toward wherever the latest server detection placed it, so
+    // motion looks fluid even though real detections only arrive every ~280ms. Corner
+    // brackets (viewfinder-style) rather than a full rectangle, colored amber while
+    // still searching and glowing green once it's held steady long enough to capture.
+    function drawFrame() {
+      const overlay = overlayRef.current;
+      const video = videoRef.current;
+      if (overlay && video && video.videoWidth) {
+        if (overlay.width !== video.videoWidth || overlay.height !== video.videoHeight) {
+          overlay.width = video.videoWidth;
+          overlay.height = video.videoHeight;
+        }
+        const octx = overlay.getContext("2d")!;
+        octx.clearRect(0, 0, overlay.width, overlay.height);
+
+        const target = targetBoxRef.current;
+        if (target) {
+          animBoxRef.current = animBoxRef.current ? lerpBox(animBoxRef.current, target, LERP_FACTOR) : target;
+          const box = animBoxRef.current;
+          const progress = Math.min(stableCountRef.current / STABILITY_FRAMES, 1);
+          const color = progress >= 1 ? "#22e3a0" : progress > 0.5 ? "#9fe08a" : "#fbbf24";
+          const bracket = Math.min(box.right - box.left, box.bottom - box.top) * 0.18;
+
+          octx.save();
+          octx.strokeStyle = color;
+          octx.lineWidth = progress >= 1 ? 6 : 4;
+          octx.shadowColor = color;
+          octx.shadowBlur = progress >= 1 ? 20 : 8;
+          octx.lineCap = "round";
+          octx.lineJoin = "round";
+          const corners: [number, number, number, number][] = [
+            [box.left, box.top, 1, 1],
+            [box.right, box.top, -1, 1],
+            [box.left, box.bottom, 1, -1],
+            [box.right, box.bottom, -1, -1],
+          ];
+          for (const [cx, cy, dx, dy] of corners) {
+            octx.beginPath();
+            octx.moveTo(cx, cy + bracket * dy);
+            octx.lineTo(cx, cy);
+            octx.lineTo(cx + bracket * dx, cy);
+            octx.stroke();
+          }
+          octx.restore();
+        } else {
+          animBoxRef.current = null;
+        }
+      }
+      rafRef.current = requestAnimationFrame(drawFrame);
     }
 
     async function start() {
@@ -186,6 +254,7 @@ export default function LiveScanner({
         if (cancelled) return;
         setStatus("live");
         timerRef.current = setTimeout(detectOnce, DETECT_INTERVAL_MS);
+        rafRef.current = requestAnimationFrame(drawFrame);
       } catch (err) {
         if (!cancelled) {
           setStatus("camera_error");
