@@ -10,7 +10,7 @@ from app.pipeline.extract_fields import (
     extract_invoice_fields,
     looks_like_id,
 )
-from app.pipeline.mrz import MrzResult, find_and_parse_mrz, mrz_to_fields, _detect_country_from_text
+from app.pipeline.mrz import COUNTRY_NAMES, MrzResult, find_and_parse_mrz, mrz_to_fields, _detect_country_from_text
 
 
 def classify_and_extract(
@@ -35,6 +35,16 @@ def classify_and_extract(
             # far less likely to be misread than three tiny MRZ characters. Use that
             # instead of leaving a field blank that the document actually does show.
             extracted["nationality"] = _detect_country_from_text(full_text)
+        if extracted.get("issuing_country") and extracted["issuing_country"] not in COUNTRY_NAMES:
+            # Same idea for issuing_country: some real cards print a 3-letter code in
+            # that MRZ slot that isn't a valid ICAO country code at all (not OCR noise
+            # on our end - verified against the actual printed card), so there's no
+            # code to map to a name. Fall back to the plain-text header instead of
+            # showing an unrecognisable 3-letter string with no way to know what it
+            # means.
+            header_name = _detect_country_from_text(full_text)
+            if header_name:
+                extracted["issuing_country"] = header_name
         if not mrz_result.valid:
             overall_conf = min(overall_conf, 0.5)
     elif treat_as_identity:
